@@ -39,6 +39,16 @@ class Settings(BaseSettings):
             )
         return self
 
+    @model_validator(mode="after")
+    def _require_db_host_outside_dev(self) -> "Settings":
+        if self.environment != "development" and not self.db_host:
+            raise ValueError(
+                "DB_HOST (and DB_PORT/DB_NAME/DB_USER/DB_PASSWORD) must be set when "
+                "ENVIRONMENT is not 'development' — refusing to fall back to the local "
+                "SQLite dev database"
+            )
+        return self
+
     @property
     def resolved_database_url(self) -> str:
         # CloudNativePG's generated app secret exposes discrete host/port/dbname/user/password

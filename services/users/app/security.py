@@ -16,6 +16,12 @@ def verify_password(password: str, hashed_password: str) -> bool:
     return pwd_context.verify(password, hashed_password)
 
 
+# A real bcrypt hash with no matching account, used to keep login's hashing cost
+# constant regardless of whether the username exists — otherwise an unknown
+# username short-circuits before hashing and leaks account existence via timing.
+DUMMY_PASSWORD_HASH = hash_password("dummy-password-for-constant-time-login")
+
+
 def create_access_token(subject: str) -> str:
     expire = datetime.now(timezone.utc) + timedelta(minutes=settings.jwt_expire_minutes)
     payload = {"sub": subject, "exp": expire}

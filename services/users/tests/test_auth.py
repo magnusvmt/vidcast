@@ -53,6 +53,14 @@ def test_login_rejects_wrong_password(client):
     assert response.status_code == 401
 
 
+def test_login_rejects_unknown_username(client):
+    response = client.post(
+        "/auth/login", data={"username": "ghost", "password": "irrelevant"}
+    )
+
+    assert response.status_code == 401
+
+
 def test_register_rejects_password_over_bcrypt_byte_limit(client):
     response = client.post(
         "/auth/register",
