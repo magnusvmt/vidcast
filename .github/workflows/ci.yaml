@@ -15,6 +15,9 @@ jobs:
       terraform: ${{ steps.filter.outputs.terraform }}
       workflow: ${{ steps.filter.outputs.workflow }}
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: dorny/paths-filter@v3
         id: filter
         with:
