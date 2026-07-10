@@ -1,0 +1,10 @@
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+
+*.exe
+*.test
+/services/*/bin/
+
+.DS_Store

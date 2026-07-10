@@ -1,0 +1,22 @@
+apiVersion: k3d.io/v1alpha5
+kind: Simple
+metadata:
+  name: vidcast
+servers: 1
+agents: 2
+ports:
+  - port: 80:80
+    nodeFilters:
+      - loadbalancer
+  - port: 443:443
+    nodeFilters:
+      - loadbalancer
+registries:
+  create:
+    name: vidcast-registry
+    host: "0.0.0.0"
+    hostPort: "5001"
+options:
+  kubeconfig:
+    updateDefaultKubeconfig: true
+    switchCurrentContext: true
