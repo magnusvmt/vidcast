@@ -1,0 +1,5 @@
+apiVersion: v2
+name: vidcast-lib
+description: Shared library chart for Vidcast services (Deployment/Service/Ingress)
+type: library
+version: 0.1.0

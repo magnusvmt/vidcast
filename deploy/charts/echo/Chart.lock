@@ -1,0 +1,6 @@
+dependencies:
+- name: vidcast-lib
+  repository: file://../vidcast-lib
+  version: 0.1.0
+digest: sha256:ffc8d24eaef5c70e41af32e629f92547c908bd5ac50289838077ed86e4acc6f2
+generated: "2026-07-10T02:40:52.726321832+02:00"

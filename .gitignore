@@ -7,4 +7,6 @@
 *.test
 /services/*/bin/
 
+/deploy/charts/*/charts/
+
 .DS_Store

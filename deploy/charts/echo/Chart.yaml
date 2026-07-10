@@ -1,0 +1,10 @@
+apiVersion: v2
+name: echo
+description: Walking-skeleton service used to verify the platform end to end
+type: application
+version: 0.1.0
+appVersion: "dev"
+dependencies:
+  - name: vidcast-lib
+    version: 0.1.0
+    repository: "file://../vidcast-lib"

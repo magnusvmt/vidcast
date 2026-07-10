@@ -1,0 +1,31 @@
+replicaCount: 2
+
+image:
+  # in-cluster nodes resolve the k3d-managed registry by its container name,
+  # not localhost:5001 (that's only reachable from the host for `docker push`)
+  repository: vidcast-registry:5000/echo
+  tag: dev
+  pullPolicy: IfNotPresent
+
+service:
+  port: 80
+  targetPort: 8080
+
+ingress:
+  enabled: true
+  host: echo.vidcast.localhost
+
+env:
+  - name: VERSION
+    value: dev
+
+resources:
+  requests:
+    cpu: 10m
+    memory: 16Mi
+  limits:
+    cpu: 100m
+    memory: 64Mi
+
+# runAsUser defaults to 65532 (distroless's "nonroot" UID) in vidcast-lib
+securityContext: {}
