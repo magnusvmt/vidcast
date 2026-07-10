@@ -13,7 +13,7 @@ on:
     types: [opened, synchronize, reopened]
 
 concurrency:
-  group: claude-${{ github.event.pull_request.number || github.event.issue.number || github.ref }}
+  group: claude-${{ github.event_name }}-${{ github.event.pull_request.number || github.event.issue.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
