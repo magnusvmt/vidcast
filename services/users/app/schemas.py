@@ -1,12 +1,14 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 class UserCreate(BaseModel):
     username: str
     email: EmailStr
-    password: str
+    # bcrypt ignores/truncates input past 72 bytes, so cap here rather than
+    # silently hashing only a prefix of a longer password.
+    password: str = Field(min_length=8, max_length=72)
 
 
 class UserOut(BaseModel):

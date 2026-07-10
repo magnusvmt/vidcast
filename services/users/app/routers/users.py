@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -38,14 +39,12 @@ def follow_user(
             status_code=status.HTTP_400_BAD_REQUEST, detail="cannot follow yourself"
         )
 
-    exists = (
-        db.query(Follow)
-        .filter(Follow.follower_id == current_user.id, Follow.followed_id == target.id)
-        .first()
-    )
-    if exists is None:
-        db.add(Follow(follower_id=current_user.id, followed_id=target.id))
+    db.add(Follow(follower_id=current_user.id, followed_id=target.id))
+    try:
         db.commit()
+    except IntegrityError:
+        # already following — a concurrent request won the race, treat as idempotent success
+        db.rollback()
 
 
 @router.delete("/{username}/follow", status_code=status.HTTP_204_NO_CONTENT)

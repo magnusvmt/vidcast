@@ -51,3 +51,21 @@ def test_login_rejects_wrong_password(client):
     )
 
     assert response.status_code == 401
+
+
+def test_register_rejects_password_over_bcrypt_byte_limit(client):
+    response = client.post(
+        "/auth/register",
+        json={"username": "alice", "email": "alice@example.com", "password": "x" * 73},
+    )
+
+    assert response.status_code == 422
+
+
+def test_register_rejects_too_short_password(client):
+    response = client.post(
+        "/auth/register",
+        json={"username": "alice", "email": "alice@example.com", "password": "short"},
+    )
+
+    assert response.status_code == 422

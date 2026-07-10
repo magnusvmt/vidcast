@@ -47,6 +47,19 @@ def test_follow_and_list_followers(client):
     assert [u["username"] for u in following] == ["bob"]
 
 
+def test_following_twice_is_idempotent(client):
+    alice_token = register_and_login(client, "alice")
+    register_and_login(client, "bob")
+    headers = {"Authorization": f"Bearer {alice_token}"}
+
+    first = client.post("/users/bob/follow", headers=headers)
+    second = client.post("/users/bob/follow", headers=headers)
+
+    assert first.status_code == 204
+    assert second.status_code == 204
+    assert [u["username"] for u in client.get("/users/bob/followers").json()] == ["alice"]
+
+
 def test_cannot_follow_self(client):
     alice_token = register_and_login(client, "alice")
 

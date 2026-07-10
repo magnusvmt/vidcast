@@ -1,4 +1,7 @@
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_INSECURE_DEFAULT_JWT_SECRET = "dev-secret-do-not-use-in-production"
 
 
 class Settings(BaseSettings):
@@ -11,10 +14,19 @@ class Settings(BaseSettings):
     db_user: str | None = None
     db_password: str | None = None
 
-    jwt_secret: str = "dev-secret-do-not-use-in-production"
+    environment: str = "development"
+    jwt_secret: str = _INSECURE_DEFAULT_JWT_SECRET
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 60
     version: str = "dev"
+
+    @model_validator(mode="after")
+    def _reject_insecure_secret_outside_dev(self) -> "Settings":
+        if self.environment != "development" and self.jwt_secret == _INSECURE_DEFAULT_JWT_SECRET:
+            raise ValueError(
+                "JWT_SECRET must be set to a real secret when ENVIRONMENT is not 'development'"
+            )
+        return self
 
     @property
     def resolved_database_url(self) -> str:
