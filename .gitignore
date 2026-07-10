@@ -10,3 +10,5 @@
 /deploy/charts/*/charts/
 
 .DS_Store
+
+CLAUDE.md
