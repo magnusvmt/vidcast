@@ -1,3 +1,5 @@
+from urllib.parse import quote_plus
+
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -28,15 +30,23 @@ class Settings(BaseSettings):
             )
         return self
 
+    @model_validator(mode="after")
+    def _require_discrete_db_fields_together(self) -> "Settings":
+        discrete_fields = (self.db_user, self.db_password, self.db_name)
+        if self.db_host and not all(discrete_fields):
+            raise ValueError(
+                "DB_USER, DB_PASSWORD, and DB_NAME must all be set when DB_HOST is set"
+            )
+        return self
+
     @property
     def resolved_database_url(self) -> str:
         # CloudNativePG's generated app secret exposes discrete host/port/dbname/user/password
         # keys rather than a single URI, and its URI uses the psycopg2 scheme, not psycopg3's.
         if self.db_host:
-            return (
-                f"postgresql+psycopg://{self.db_user}:{self.db_password}"
-                f"@{self.db_host}:{self.db_port}/{self.db_name}"
-            )
+            user = quote_plus(self.db_user)
+            password = quote_plus(self.db_password)
+            return f"postgresql+psycopg://{user}:{password}@{self.db_host}:{self.db_port}/{self.db_name}"
         return self.database_url
 
 

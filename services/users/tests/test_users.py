@@ -80,3 +80,16 @@ def test_unfollow_removes_relationship(client):
 
     assert response.status_code == 204
     assert client.get("/users/bob/followers").json() == []
+
+
+def test_followers_pagination(client):
+    register_and_login(client, "popular")
+    for name in ["fan-a", "fan-b", "fan-c"]:
+        token = register_and_login(client, name)
+        client.post("/users/popular/follow", headers={"Authorization": f"Bearer {token}"})
+
+    first_page = client.get("/users/popular/followers", params={"limit": 2, "offset": 0}).json()
+    second_page = client.get("/users/popular/followers", params={"limit": 2, "offset": 2}).json()
+
+    assert [u["username"] for u in first_page] == ["fan-a", "fan-b"]
+    assert [u["username"] for u in second_page] == ["fan-c"]

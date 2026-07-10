@@ -69,3 +69,40 @@ def test_register_rejects_too_short_password(client):
     )
 
     assert response.status_code == 422
+
+
+def test_register_rejects_password_over_bcrypt_byte_limit_with_multibyte_chars(client):
+    # 24 "🙂" chars is 24 chars (well under a naive 72-char cap) but 96 bytes in UTF-8.
+    response = client.post(
+        "/auth/register",
+        json={"username": "alice", "email": "alice@example.com", "password": "🙂" * 24},
+    )
+
+    assert response.status_code == 422
+
+
+def test_register_rejects_reserved_username(client):
+    response = client.post(
+        "/auth/register",
+        json={"username": "me", "email": "me@example.com", "password": "s3cret-pass"},
+    )
+
+    assert response.status_code == 422
+
+
+def test_register_rejects_username_with_invalid_characters(client):
+    response = client.post(
+        "/auth/register",
+        json={"username": "alice smith", "email": "alice@example.com", "password": "s3cret-pass"},
+    )
+
+    assert response.status_code == 422
+
+
+def test_register_rejects_too_short_username(client):
+    response = client.post(
+        "/auth/register",
+        json={"username": "ab", "email": "alice@example.com", "password": "s3cret-pass"},
+    )
+
+    assert response.status_code == 422

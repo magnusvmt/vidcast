@@ -1,14 +1,32 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+
+# "me" would be permanently unreachable via GET /users/{username}, since the
+# literal /users/me route is registered first.
+RESERVED_USERNAMES = {"me"}
 
 
 class UserCreate(BaseModel):
-    username: str
+    username: str = Field(min_length=3, max_length=32, pattern=r"^[a-zA-Z0-9_-]+$")
     email: EmailStr
-    # bcrypt ignores/truncates input past 72 bytes, so cap here rather than
-    # silently hashing only a prefix of a longer password.
-    password: str = Field(min_length=8, max_length=72)
+    password: str = Field(min_length=8)
+
+    @field_validator("username")
+    @classmethod
+    def _reject_reserved_username(cls, value: str) -> str:
+        if value.lower() in RESERVED_USERNAMES:
+            raise ValueError(f"username {value!r} is reserved")
+        return value
+
+    @field_validator("password")
+    @classmethod
+    def _enforce_bcrypt_byte_limit(cls, value: str) -> str:
+        # bcrypt's input limit is 72 *bytes*, not characters — a password within
+        # a character-count limit can still overflow once UTF-8 encoded.
+        if len(value.encode("utf-8")) > 72:
+            raise ValueError("password must be at most 72 bytes")
+        return value
 
 
 class UserOut(BaseModel):

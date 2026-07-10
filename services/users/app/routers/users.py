@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.deps import get_current_user
@@ -61,12 +61,40 @@ def unfollow_user(
 
 
 @router.get("/{username}/followers", response_model=list[UserOut])
-def list_followers(username: str, db: Session = Depends(get_db)) -> list[User]:
+def list_followers(
+    username: str,
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    db: Session = Depends(get_db),
+) -> list[User]:
     target = _get_user_or_404(username, db)
-    return [f.follower for f in db.query(Follow).filter(Follow.followed_id == target.id).all()]
+    follows = (
+        db.query(Follow)
+        .options(joinedload(Follow.follower))
+        .filter(Follow.followed_id == target.id)
+        .order_by(Follow.created_at)
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+    return [f.follower for f in follows]
 
 
 @router.get("/{username}/following", response_model=list[UserOut])
-def list_following(username: str, db: Session = Depends(get_db)) -> list[User]:
+def list_following(
+    username: str,
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    db: Session = Depends(get_db),
+) -> list[User]:
     target = _get_user_or_404(username, db)
-    return [f.followed for f in db.query(Follow).filter(Follow.follower_id == target.id).all()]
+    follows = (
+        db.query(Follow)
+        .options(joinedload(Follow.followed))
+        .filter(Follow.follower_id == target.id)
+        .order_by(Follow.created_at)
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+    return [f.followed for f in follows]
