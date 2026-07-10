@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  go-echo:
+    name: echo service (Go)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/echo
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+      - name: Lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          working-directory: services/echo
+          version: v1.62.2
+      - name: Test
+        run: go test ./...
+      - name: Build image
+        run: docker build -t echo:ci .
+
+  ghcr-publish-echo:
+    name: Publish echo image to GHCR
+    needs: go-echo
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: services/echo
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}/echo:${{ github.sha }}
+            ghcr.io/${{ github.repository }}/echo:latest
+
+  helm:
+    name: Helm chart checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.16.4
+      - name: helm dependency update
+        run: helm dependency update deploy/charts/echo
+      - name: helm lint
+        run: |
+          helm lint deploy/charts/vidcast-lib
+          helm lint deploy/charts/echo
+      - name: helm template
+        run: helm template test-release deploy/charts/echo
+
+  terraform:
+    name: Terraform checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.10.3"
+      - name: terraform fmt
+        run: terraform fmt -check -recursive infra/terraform
+      - name: terraform validate (local env)
+        working-directory: infra/terraform/envs/local
+        run: |
+          terraform init -backend=false
+          terraform validate
