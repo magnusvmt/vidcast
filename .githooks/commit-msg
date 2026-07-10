@@ -12,6 +12,9 @@ if [ -z "${CLAUDE_CODE_SESSION_ID:-}" ]; then
   exit 0
 fi
 
+# grep -qFx requires the trailer to be its own exact line (no trailing
+# whitespace/CR) - intentional, keep this an exact match rather than a
+# fuzzy one (see PR #37 for what fuzzy session matching broke).
 if ! grep -qFx "Claude-Session-Id: ${CLAUDE_CODE_SESSION_ID}" "$msg_file"; then
   echo "error: commit message is missing 'Claude-Session-Id: ${CLAUDE_CODE_SESSION_ID}' trailer" >&2
   echo "Claude Code sessions must tag their commits so PR automation can find the right session to resume." >&2

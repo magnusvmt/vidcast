@@ -35,6 +35,7 @@ Early scaffolding stage. See `docs/adr/` for foundational decisions.
 ## Quickstart
 
 ```
+make hooks     # enable repo git hooks (run once per clone)
 make cluster   # create the local k3d cluster
 make infra     # terraform apply against it
 make deploy    # build and deploy services
