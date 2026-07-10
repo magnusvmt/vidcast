@@ -12,7 +12,7 @@ if [ -z "${CLAUDE_CODE_SESSION_ID:-}" ]; then
   exit 0
 fi
 
-if ! grep -qE "^Claude-Session-Id: ${CLAUDE_CODE_SESSION_ID}$" "$msg_file"; then
+if ! grep -qFx "Claude-Session-Id: ${CLAUDE_CODE_SESSION_ID}" "$msg_file"; then
   echo "error: commit message is missing 'Claude-Session-Id: ${CLAUDE_CODE_SESSION_ID}' trailer" >&2
   echo "Claude Code sessions must tag their commits so PR automation can find the right session to resume." >&2
   echo "Add this line to the commit message:" >&2
