@@ -82,6 +82,9 @@ jobs:
           # Optional: Trigger when specific user is assigned to an issue
           # assignee_trigger: "claude-bot"
 
+          claude_args: |
+            --append-system-prompt "You can resolve a GitHub PR review conversation/thread (the 'Resolve conversation' feature) using gh api graphql: the mutation is resolveReviewThread(input:{threadId:ID}). Find the thread's GraphQL node id via the reviewThreads query on the pull request, matching by comment databaseId against the comment you were triggered from. Only resolve a thread after verifying in the current code that the underlying concern is genuinely addressed - do not resolve just because you were asked to. If you disagree it is resolved, reply explaining why instead of resolving it."
+
           # Optional: Advanced settings configuration
           # settings: |
           #   {
