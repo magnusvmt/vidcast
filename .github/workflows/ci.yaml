@@ -6,8 +6,32 @@ on:
   pull_request:
 
 jobs:
+  changes:
+    name: Detect changed paths
+    runs-on: ubuntu-latest
+    outputs:
+      echo: ${{ steps.filter.outputs.echo }}
+      helm: ${{ steps.filter.outputs.helm }}
+      terraform: ${{ steps.filter.outputs.terraform }}
+      workflow: ${{ steps.filter.outputs.workflow }}
+    steps:
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            echo:
+              - 'services/echo/**'
+            helm:
+              - 'deploy/charts/**'
+            terraform:
+              - 'infra/terraform/**'
+            workflow:
+              - '.github/workflows/ci.yaml'
+
   go-echo:
     name: echo service (Go)
+    needs: changes
+    if: needs.changes.outputs.echo == 'true' || needs.changes.outputs.workflow == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -29,8 +53,10 @@ jobs:
 
   ghcr-publish-echo:
     name: Publish echo image to GHCR
-    needs: go-echo
-    if: github.ref == 'refs/heads/main'
+    needs: [changes, go-echo]
+    if: |
+      github.ref == 'refs/heads/main' &&
+      (needs.changes.outputs.echo == 'true' || needs.changes.outputs.workflow == 'true')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -52,6 +78,8 @@ jobs:
 
   helm:
     name: Helm chart checks
+    needs: changes
+    if: needs.changes.outputs.helm == 'true' || needs.changes.outputs.workflow == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -69,6 +97,8 @@ jobs:
 
   terraform:
     name: Terraform checks
+    needs: changes
+    if: needs.changes.outputs.terraform == 'true' || needs.changes.outputs.workflow == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
