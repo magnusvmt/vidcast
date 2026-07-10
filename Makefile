@@ -7,7 +7,7 @@ destroy:
 	k3d cluster delete vidcast
 
 infra:
-	cd infra/terraform/envs/local && terraform init && terraform apply
+	cd infra/terraform/envs/local && terraform init && terraform apply -auto-approve
 
 deploy:
 	docker build -t localhost:5001/echo:dev services/echo
