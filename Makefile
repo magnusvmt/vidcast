@@ -1,4 +1,7 @@
-.PHONY: cluster destroy infra deploy
+.PHONY: cluster destroy infra deploy hooks
+
+hooks:
+	git config core.hooksPath .githooks
 
 cluster:
 	k3d cluster create --config infra/k3d/config.yaml

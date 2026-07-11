@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Enforces that commits made by a Claude Code agent session carry a
+# "Claude-Session-Id: <id>" trailer matching the session that made them, so
+# automation (e.g. the PR-watcher cron job) can look up the exact session
+# that owns a PR from its commits instead of relying on fuzzy matching.
+# No-op for commits made outside a Claude Code session (CLAUDE_CODE_SESSION_ID unset).
+set -euo pipefail
+
+msg_file="$1"
+
+if [ -z "${CLAUDE_CODE_SESSION_ID:-}" ]; then
+  exit 0
+fi
+
+# grep -qFx requires the trailer to be its own exact line (no trailing
+# whitespace/CR) - intentional, keep this an exact match rather than a
+# fuzzy one (see PR #37 for what fuzzy session matching broke).
+if ! grep -qFx "Claude-Session-Id: ${CLAUDE_CODE_SESSION_ID}" "$msg_file"; then
+  echo "error: commit message is missing 'Claude-Session-Id: ${CLAUDE_CODE_SESSION_ID}' trailer" >&2
+  echo "Claude Code sessions must tag their commits so PR automation can find the right session to resume." >&2
+  echo "Add this line to the commit message:" >&2
+  echo "" >&2
+  echo "Claude-Session-Id: ${CLAUDE_CODE_SESSION_ID}" >&2
+  exit 1
+fi
