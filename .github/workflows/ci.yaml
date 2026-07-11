@@ -58,7 +58,6 @@ jobs:
     name: Publish echo image to GHCR
     needs: [changes, go-echo]
     if: |
-      needs.go-echo.result == 'success' &&
       github.ref == 'refs/heads/main' &&
       (needs.changes.outputs.echo == 'true' || needs.changes.outputs.workflow == 'true')
     runs-on: ubuntu-latest
