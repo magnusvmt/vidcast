@@ -37,14 +37,16 @@ def login(
 ) -> Token:
     user = db.query(User).filter(User.username == form_data.username.lower()).first()
     password_hash = user.hashed_password if user is not None else DUMMY_PASSWORD_HASH
-    # bcrypt silently ignores bytes past 72, but reject oversized payloads
-    # anyway rather than handing arbitrarily large strings to it - no real
-    # account's password can exceed this bound (see
-    # UserCreate._enforce_bcrypt_byte_limit). verify_password must run
-    # unconditionally either way, to keep login's timing independent of
-    # whether the account/length check failed.
-    password_matches = verify_password(form_data.password, password_hash)
-    password_valid = password_matches and len(form_data.password.encode("utf-8")) <= 72
+    # No real account's password can exceed 72 bytes (see
+    # UserCreate._enforce_bcrypt_byte_limit), and an oversized value here is
+    # never handed to bcrypt - swap it for a fixed-size placeholder so a
+    # multi-megabyte payload can't reach passlib/bcrypt at all. verify_password
+    # still runs unconditionally either way, so timing doesn't reveal whether
+    # the length check tripped.
+    password_bytes_ok = len(form_data.password.encode("utf-8")) <= 72
+    password_to_check = form_data.password if password_bytes_ok else "oversized-password-rejected"
+    password_matches = verify_password(password_to_check, password_hash)
+    password_valid = password_bytes_ok and password_matches
     if user is None or not password_valid:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

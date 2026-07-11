@@ -135,6 +135,34 @@ def test_login_rejects_password_over_bcrypt_byte_limit(client):
     assert response.status_code == 401
 
 
+def test_login_never_hands_oversized_password_to_bcrypt(client, monkeypatch):
+    import app.routers.auth as auth_module
+
+    client.post(
+        "/auth/register",
+        json={"username": "alice", "email": "alice@example.com", "password": "s3cret-pass"},
+    )
+
+    seen_passwords = []
+    real_verify_password = auth_module.verify_password
+
+    def spy_verify_password(password, hashed_password):
+        seen_passwords.append(password)
+        return real_verify_password(password, hashed_password)
+
+    monkeypatch.setattr(auth_module, "verify_password", spy_verify_password)
+
+    oversized_password = "x" * 5_000_000
+    response = client.post(
+        "/auth/login", data={"username": "alice", "password": oversized_password}
+    )
+
+    assert response.status_code == 401
+    assert len(seen_passwords) == 1
+    assert seen_passwords[0] != oversized_password
+    assert len(seen_passwords[0].encode("utf-8")) <= 72
+
+
 def test_register_rejects_password_over_bcrypt_byte_limit(client):
     response = client.post(
         "/auth/register",

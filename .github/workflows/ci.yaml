@@ -11,6 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       echo: ${{ steps.filter.outputs.echo }}
+      users: ${{ steps.filter.outputs.users }}
       helm: ${{ steps.filter.outputs.helm }}
       terraform: ${{ steps.filter.outputs.terraform }}
       workflow: ${{ steps.filter.outputs.workflow }}
@@ -24,6 +25,8 @@ jobs:
           filters: |
             echo:
               - 'services/echo/**'
+            users:
+              - 'services/users/**'
             helm:
               - 'deploy/charts/**'
             terraform:
@@ -81,6 +84,8 @@ jobs:
 
   python-users:
     name: users service (Python)
+    needs: changes
+    if: needs.changes.outputs.users == 'true' || needs.changes.outputs.workflow == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
