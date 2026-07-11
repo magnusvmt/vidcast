@@ -24,6 +24,30 @@ def test_register_rejects_duplicate_username(client):
     assert response.status_code == 409
 
 
+def test_register_rejects_duplicate_email_case_insensitively(client):
+    client.post(
+        "/auth/register",
+        json={"username": "alice", "email": "alice@example.com", "password": "s3cret-pass"},
+    )
+
+    response = client.post(
+        "/auth/register",
+        json={"username": "someone-else", "email": "Alice@Example.com", "password": "s3cret-pass"},
+    )
+
+    assert response.status_code == 409
+
+
+def test_register_normalizes_email_to_lowercase(client):
+    response = client.post(
+        "/auth/register",
+        json={"username": "alice", "email": "Alice@Example.COM", "password": "s3cret-pass"},
+    )
+
+    assert response.status_code == 201
+    assert response.json()["email"] == "alice@example.com"
+
+
 def test_login_returns_access_token_for_valid_credentials(client):
     client.post(
         "/auth/register",

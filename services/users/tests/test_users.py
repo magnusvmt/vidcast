@@ -1,3 +1,7 @@
+from datetime import datetime, timezone
+
+import app.models as models
+
 from tests.conftest import register_and_login
 
 
@@ -103,6 +107,31 @@ def test_unfollow_removes_relationship(client):
 
 
 def test_followers_pagination(client):
+    register_and_login(client, "popular")
+    for name in ["fan-a", "fan-b", "fan-c"]:
+        token = register_and_login(client, name)
+        client.post("/users/popular/follow", headers={"Authorization": f"Bearer {token}"})
+
+    first_page = client.get("/users/popular/followers", params={"limit": 2, "offset": 0}).json()
+    second_page = client.get("/users/popular/followers", params={"limit": 2, "offset": 2}).json()
+
+    assert [u["username"] for u in first_page] == ["fan-a", "fan-b"]
+    assert [u["username"] for u in second_page] == ["fan-c"]
+
+
+def test_followers_pagination_is_stable_when_timestamps_collide(client, monkeypatch):
+    # Follow.created_at defaults to datetime.now(timezone.utc), so if several
+    # follows land in the same instant (plausible in a burst), pagination must
+    # still be deterministic via a tiebreaker rather than relying on timestamp order alone.
+    frozen = datetime(2026, 1, 1, tzinfo=timezone.utc)
+
+    class _FrozenDatetime:
+        @staticmethod
+        def now(tz=None):
+            return frozen
+
+    monkeypatch.setattr(models, "datetime", _FrozenDatetime)
+
     register_and_login(client, "popular")
     for name in ["fan-a", "fan-b", "fan-c"]:
         token = register_and_login(client, name)

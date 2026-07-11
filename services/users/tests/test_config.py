@@ -33,7 +33,14 @@ def test_default_jwt_secret_is_fine_in_development():
 
 def test_default_jwt_secret_is_rejected_outside_development():
     with pytest.raises(ValidationError):
-        Settings(environment="production")
+        Settings(
+            environment="production",
+            db_host="users-db-rw",
+            db_port=5432,
+            db_name="app",
+            db_user="app",
+            db_password="s3cret",
+        )
 
 
 def test_resolved_database_url_escapes_reserved_characters_in_credentials():

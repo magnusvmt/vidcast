@@ -28,6 +28,14 @@ class UserCreate(BaseModel):
             raise ValueError("password must be at most 72 bytes")
         return value
 
+    @field_validator("email")
+    @classmethod
+    def _normalize_email(cls, value: str) -> str:
+        # most providers treat email addresses case-insensitively; normalize
+        # to lowercase so the DB's unique constraint actually prevents
+        # duplicate accounts like alice@example.com / Alice@Example.com.
+        return value.lower()
+
 
 class PublicUserOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)

@@ -1,7 +1,6 @@
-from urllib.parse import quote_plus
-
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from sqlalchemy.engine import URL
 
 _INSECURE_DEFAULT_JWT_SECRET = "dev-secret-do-not-use-in-production"
 
@@ -54,9 +53,15 @@ class Settings(BaseSettings):
         # CloudNativePG's generated app secret exposes discrete host/port/dbname/user/password
         # keys rather than a single URI, and its URI uses the psycopg2 scheme, not psycopg3's.
         if self.db_host:
-            user = quote_plus(self.db_user)
-            password = quote_plus(self.db_password)
-            return f"postgresql+psycopg://{user}:{password}@{self.db_host}:{self.db_port}/{self.db_name}"
+            url = URL.create(
+                drivername="postgresql+psycopg",
+                username=self.db_user,
+                password=self.db_password,
+                host=self.db_host,
+                port=self.db_port,
+                database=self.db_name,
+            )
+            return url.render_as_string(hide_password=False)
         return self.database_url
 
 
