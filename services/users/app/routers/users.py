@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.database import get_db
 from app.deps import get_current_user
 from app.models import Follow, User
-from app.schemas import UserOut
+from app.schemas import PublicUserOut, UserOut
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -22,7 +22,7 @@ def read_current_user(current_user: User = Depends(get_current_user)) -> User:
     return current_user
 
 
-@router.get("/{username}", response_model=UserOut)
+@router.get("/{username}", response_model=PublicUserOut)
 def read_user(username: str, db: Session = Depends(get_db)) -> User:
     return _get_user_or_404(username, db)
 
@@ -60,7 +60,7 @@ def unfollow_user(
     db.commit()
 
 
-@router.get("/{username}/followers", response_model=list[UserOut])
+@router.get("/{username}/followers", response_model=list[PublicUserOut])
 def list_followers(
     username: str,
     limit: int = Query(default=50, ge=1, le=200),
@@ -80,7 +80,7 @@ def list_followers(
     return [f.follower for f in follows]
 
 
-@router.get("/{username}/following", response_model=list[UserOut])
+@router.get("/{username}/following", response_model=list[PublicUserOut])
 def list_following(
     username: str,
     limit: int = Query(default=50, ge=1, le=200),

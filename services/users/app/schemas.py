@@ -29,12 +29,15 @@ class UserCreate(BaseModel):
         return value
 
 
-class UserOut(BaseModel):
+class PublicUserOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     username: str
-    email: EmailStr
     created_at: datetime
+
+
+class UserOut(PublicUserOut):
+    email: EmailStr
 
 
 class Token(BaseModel):

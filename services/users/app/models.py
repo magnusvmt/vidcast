@@ -22,7 +22,7 @@ class Follow(Base):
     __tablename__ = "follows"
 
     follower_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True)
-    followed_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True)
+    followed_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True, index=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )

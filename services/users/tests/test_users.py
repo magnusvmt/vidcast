@@ -25,6 +25,26 @@ def test_get_user_by_username(client):
     assert response.json()["username"] == "alice"
 
 
+def test_get_user_by_username_does_not_leak_email(client):
+    register_and_login(client, "alice")
+
+    response = client.get("/users/alice")
+
+    assert "email" not in response.json()
+
+
+def test_followers_and_following_do_not_leak_email(client):
+    alice_token = register_and_login(client, "alice")
+    register_and_login(client, "bob")
+    client.post("/users/bob/follow", headers={"Authorization": f"Bearer {alice_token}"})
+
+    followers = client.get("/users/bob/followers").json()
+    following = client.get("/users/alice/following").json()
+
+    assert "email" not in followers[0]
+    assert "email" not in following[0]
+
+
 def test_get_unknown_user_returns_404(client):
     response = client.get("/users/ghost")
 
