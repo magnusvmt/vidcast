@@ -24,6 +24,43 @@ def test_register_rejects_duplicate_username(client):
     assert response.status_code == 409
 
 
+def test_register_rejects_duplicate_username_case_insensitively(client):
+    client.post(
+        "/auth/register",
+        json={"username": "alice", "email": "alice@example.com", "password": "s3cret-pass"},
+    )
+
+    response = client.post(
+        "/auth/register",
+        json={"username": "Alice", "email": "someone-else@example.com", "password": "s3cret-pass"},
+    )
+
+    assert response.status_code == 409
+
+
+def test_register_normalizes_username_to_lowercase(client):
+    response = client.post(
+        "/auth/register",
+        json={"username": "Alice", "email": "alice@example.com", "password": "s3cret-pass"},
+    )
+
+    assert response.status_code == 201
+    assert response.json()["username"] == "alice"
+
+
+def test_login_accepts_username_case_insensitively(client):
+    client.post(
+        "/auth/register",
+        json={"username": "alice", "email": "alice@example.com", "password": "s3cret-pass"},
+    )
+
+    response = client.post(
+        "/auth/login", data={"username": "Alice", "password": "s3cret-pass"}
+    )
+
+    assert response.status_code == 200
+
+
 def test_register_rejects_duplicate_email_case_insensitively(client):
     client.post(
         "/auth/register",
@@ -80,6 +117,19 @@ def test_login_rejects_wrong_password(client):
 def test_login_rejects_unknown_username(client):
     response = client.post(
         "/auth/login", data={"username": "ghost", "password": "irrelevant"}
+    )
+
+    assert response.status_code == 401
+
+
+def test_login_rejects_password_over_bcrypt_byte_limit(client):
+    client.post(
+        "/auth/register",
+        json={"username": "alice", "email": "alice@example.com", "password": "s3cret-pass"},
+    )
+
+    response = client.post(
+        "/auth/login", data={"username": "alice", "password": "x" * 73}
     )
 
     assert response.status_code == 401

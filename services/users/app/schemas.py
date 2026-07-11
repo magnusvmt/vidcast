@@ -19,6 +19,13 @@ class UserCreate(BaseModel):
             raise ValueError(f"username {value!r} is reserved")
         return value
 
+    @field_validator("username")
+    @classmethod
+    def _normalize_username(cls, value: str) -> str:
+        # username is a unique lookup key just like email, so normalize it the
+        # same way to prevent alice/Alice from registering as two accounts.
+        return value.lower()
+
     @field_validator("password")
     @classmethod
     def _enforce_bcrypt_byte_limit(cls, value: str) -> str:

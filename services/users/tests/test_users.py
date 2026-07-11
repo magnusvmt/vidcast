@@ -29,6 +29,15 @@ def test_get_user_by_username(client):
     assert response.json()["username"] == "alice"
 
 
+def test_get_user_by_username_is_case_insensitive(client):
+    register_and_login(client, "alice")
+
+    response = client.get("/users/Alice")
+
+    assert response.status_code == 200
+    assert response.json()["username"] == "alice"
+
+
 def test_get_user_by_username_does_not_leak_email(client):
     register_and_login(client, "alice")
 
