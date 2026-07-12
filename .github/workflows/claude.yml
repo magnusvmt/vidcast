@@ -92,12 +92,46 @@ jobs:
           EOF
           )"
 
+      # A `synchronize` event fires on every push to the PR branch, including
+      # a rebase that rewrites commit SHAs without changing the actual diff
+      # against base - the auto-review below has no memory between runs, so
+      # a rebase-only push made it fully re-review already-reviewed code and
+      # re-post findings already fixed/addressed, wasting a review pass and
+      # adding to the comment volume that has previously triggered SDK
+      # flakiness under concurrent same-PR invocation (see the note on the
+      # mention-triggered step below). Compare the diff against base
+      # before/after the push; skip the review only when they're identical.
+      # If the old `before` commit is no longer fetchable (e.g. already
+      # garbage-collected after an earlier force-push), fail open - treat it
+      # as changed and still review - rather than silently skip a real one.
+      - name: Detect no-op rebase (diff against base unchanged)
+        id: diff-check
+        if: github.event_name == 'pull_request' && github.event.action == 'synchronize'
+        run: |
+          before="${{ github.event.before }}"
+          after="${{ github.event.after }}"
+          base="${{ github.event.pull_request.base.sha }}"
+          git fetch --quiet origin "$before" "$after" "$base" 2>/dev/null || true
+          if git cat-file -e "$before^{commit}" 2>/dev/null && \
+             git cat-file -e "$after^{commit}" 2>/dev/null && \
+             git cat-file -e "$base^{commit}" 2>/dev/null; then
+            before_diff="$(git diff "$base" "$before" | git hash-object --stdin)"
+            after_diff="$(git diff "$base" "$after" | git hash-object --stdin)"
+            if [ "$before_diff" = "$after_diff" ]; then
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "skip=false" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
       # Automatic PR review (bare pull_request event, no mention). Needs an
       # explicit prompt and tool allowlist since agent-mode has no GitHub
       # write access by default.
       - name: Run Claude Code (PR auto-review)
         id: claude-pr-review
-        if: github.event_name == 'pull_request' && steps.check-stale-workflow.outputs.stale != 'true'
+        if: github.event_name == 'pull_request' && steps.check-stale-workflow.outputs.stale != 'true' && steps.diff-check.outputs.skip != 'true'
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
