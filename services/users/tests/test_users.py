@@ -11,6 +11,36 @@ def test_me_requires_authentication(client):
     assert response.status_code == 401
 
 
+def test_me_rejects_malformed_token(client):
+    response = client.get(
+        "/users/me", headers={"Authorization": "Bearer not-a-jwt"}
+    )
+
+    assert response.status_code == 401
+
+
+def test_me_rejects_expired_token(client, monkeypatch):
+    import app.security as security_module
+
+    # Use a fixed past time so the token's exp claim is in the past.
+    past = datetime(2020, 1, 1, tzinfo=timezone.utc)
+
+    class _PastDatetime:
+        @staticmethod
+        def now(tz=None):
+            return past
+
+    monkeypatch.setattr(security_module, "datetime", _PastDatetime)
+
+    token = register_and_login(client, "alice")
+
+    response = client.get(
+        "/users/me", headers={"Authorization": f"Bearer {token}"}
+    )
+
+    assert response.status_code == 401
+
+
 def test_me_returns_current_user(client):
     token = register_and_login(client, "alice")
 
