@@ -1,4 +1,4 @@
-from pydantic import model_validator
+from pydantic import SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import URL
 
@@ -13,18 +13,19 @@ class Settings(BaseSettings):
     db_port: int = 5432
     db_name: str | None = None
     db_user: str | None = None
-    db_password: str | None = None
+    db_password: SecretStr | None = None
 
     environment: str = "development"
-    jwt_secret: str = _INSECURE_DEFAULT_JWT_SECRET
+    jwt_secret: SecretStr = SecretStr(_INSECURE_DEFAULT_JWT_SECRET)
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 60
     version: str = "dev"
 
     @model_validator(mode="after")
     def _reject_insecure_secret_outside_dev(self) -> "Settings":
+        secret_value = self.jwt_secret.get_secret_value()
         if self.environment != "development" and (
-            not self.jwt_secret or self.jwt_secret == _INSECURE_DEFAULT_JWT_SECRET
+            not secret_value or secret_value == _INSECURE_DEFAULT_JWT_SECRET
         ):
             raise ValueError(
                 "JWT_SECRET must be set to a real secret when ENVIRONMENT is not 'development'"
@@ -58,7 +59,7 @@ class Settings(BaseSettings):
             url = URL.create(
                 drivername="postgresql+psycopg",
                 username=self.db_user,
-                password=self.db_password,
+                password=self.db_password.get_secret_value() if self.db_password is not None else None,
                 host=self.db_host,
                 port=self.db_port,
                 database=self.db_name,

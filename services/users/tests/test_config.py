@@ -28,7 +28,7 @@ def test_resolved_database_url_builds_psycopg_url_from_discrete_fields():
 def test_default_jwt_secret_is_fine_in_development():
     settings = Settings(environment="development")
 
-    assert settings.jwt_secret == "dev-secret-do-not-use-in-production"
+    assert settings.jwt_secret.get_secret_value() == "dev-secret-do-not-use-in-production"
 
 
 def test_default_jwt_secret_is_rejected_outside_development():
@@ -97,7 +97,7 @@ def test_empty_jwt_secret_is_rejected_outside_development():
 def test_empty_jwt_secret_is_fine_in_development():
     # In development, even an empty JWT_SECRET is allowed (we allow any value)
     settings = Settings(environment="development", jwt_secret="")
-    assert settings.jwt_secret == ""
+    assert settings.jwt_secret.get_secret_value() == ""
 
 
 def test_allows_empty_db_password_with_db_host_set():
@@ -110,7 +110,7 @@ def test_allows_empty_db_password_with_db_host_set():
         db_user="app",
         db_password="",
     )
-    assert settings.db_password == ""
+    assert settings.db_password.get_secret_value() == ""
 
 
 def test_rejects_db_host_without_db_user():

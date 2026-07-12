@@ -42,9 +42,15 @@ def follow_user(
     db.add(Follow(follower_id=current_user.id, followed_id=target.id))
     try:
         db.commit()
-    except IntegrityError:
-        # already following — a concurrent request won the race, treat as idempotent success
+    except IntegrityError as exc:
         db.rollback()
+        # A duplicate-follow race violates the composite primary key ("unique" appears
+        # in both SQLite's and Postgres's error text for that). Anything else — e.g. a
+        # foreign key violation from a concurrently deleted user — should surface
+        # instead of being silently swallowed into a 204.
+        if "unique" not in str(exc.orig).lower():
+            raise
+        # already following — a concurrent request won the race, treat as idempotent success
 
 
 @router.delete("/{username}/follow", status_code=status.HTTP_204_NO_CONTENT)
