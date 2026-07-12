@@ -10,10 +10,9 @@ RESERVED_USERNAMES = {"me"}
 class UserCreate(BaseModel):
     username: str = Field(min_length=3, max_length=32, pattern=r"^[a-zA-Z0-9_-]+$")
     email: EmailStr
-    # 128 chars is well above any real password while still comfortably below
-    # the point where a request body would need to be rejected for size alone
-    # — the actual bcrypt byte-limit check happens in _enforce_bcrypt_byte_limit.
-    password: str = Field(min_length=8, max_length=128)
+    # 72 chars max — matches bcrypt's 72-byte limit for ASCII input and catches
+    # oversized passwords at the Field level before the byte-limit validator runs.
+    password: str = Field(min_length=8, max_length=72)
 
     @field_validator("username")
     @classmethod

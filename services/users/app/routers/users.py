@@ -44,13 +44,18 @@ def follow_user(
         db.commit()
     except IntegrityError as exc:
         db.rollback()
+        exc_str = str(exc.orig).lower()
         # A duplicate-follow race violates the composite primary key ("unique" appears
-        # in both SQLite's and Postgres's error text for that). Anything else — e.g. a
-        # foreign key violation from a concurrently deleted user — should surface
-        # instead of being silently swallowed into a 204.
-        if "unique" not in str(exc.orig).lower():
-            raise
-        # already following — a concurrent request won the race, treat as idempotent success
+        # in both SQLite's and Postgres's error text for that).
+        if "unique" in exc_str:
+            return  # already following — idempotent success
+        # A foreign-key violation means the target user was deleted between the
+        # _get_user_or_404 check above and this insert — return 404 instead of 500.
+        if "foreign" in exc_str:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="user not found"
+            )
+        raise
 
 
 @router.delete("/{username}/follow", status_code=status.HTTP_204_NO_CONTENT)
