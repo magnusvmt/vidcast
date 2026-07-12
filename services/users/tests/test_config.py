@@ -148,3 +148,38 @@ def test_rejects_discrete_db_fields_without_db_host():
             db_user="app",
             db_password="s3cret",
         )
+
+
+def test_rejects_weak_jwt_secret_outside_development():
+    # A short JWT secret like "123" or "changeme" outside development should be rejected
+    # to prevent accidentally shipping with low-entropy signing keys.
+    with pytest.raises(ValidationError, match="at least 32 characters"):
+        Settings(
+            environment="production",
+            jwt_secret="weak-secret",
+            db_host="users-db-rw",
+            db_port=5432,
+            db_name="app",
+            db_user="app",
+            db_password="s3cret",
+        )
+
+
+def test_accepts_sufficiently_long_jwt_secret_outside_development():
+    # A JWT secret with at least 32 characters should be accepted.
+    settings = Settings(
+        environment="production",
+        jwt_secret="a" * 32,
+        db_host="users-db-rw",
+        db_port=5432,
+        db_name="app",
+        db_user="app",
+        db_password="s3cret",
+    )
+    assert settings.environment == "production"
+
+
+def test_allows_weak_jwt_secret_in_development():
+    # In development, even a weak JWT_SECRET like "123" is allowed
+    settings = Settings(environment="development", jwt_secret="123")
+    assert settings.jwt_secret.get_secret_value() == "123"

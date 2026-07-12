@@ -24,12 +24,15 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def _reject_insecure_secret_outside_dev(self) -> "Settings":
         secret_value = self.jwt_secret.get_secret_value()
-        if self.environment != "development" and (
-            not secret_value or secret_value == _INSECURE_DEFAULT_JWT_SECRET
-        ):
-            raise ValueError(
-                "JWT_SECRET must be set to a real secret when ENVIRONMENT is not 'development'"
-            )
+        if self.environment != "development":
+            if not secret_value or secret_value == _INSECURE_DEFAULT_JWT_SECRET:
+                raise ValueError(
+                    "JWT_SECRET must be set to a real secret when ENVIRONMENT is not 'development'"
+                )
+            if len(secret_value) < 32:
+                raise ValueError(
+                    "JWT_SECRET must be at least 32 characters long to ensure sufficient entropy"
+                )
         return self
 
     @model_validator(mode="after")
