@@ -135,3 +135,16 @@ def test_rejects_db_host_without_db_name():
             db_user="app",
             db_password="s3cret",
         )
+
+
+def test_rejects_discrete_db_fields_without_db_host():
+    # A typo'd/missing DB_HOST env var shouldn't silently fall back to the
+    # local SQLite dev URL when the other discrete fields are set.
+    with pytest.raises(ValidationError):
+        Settings(
+            db_host=None,
+            db_port=5432,
+            db_name="app",
+            db_user="app",
+            db_password="s3cret",
+        )

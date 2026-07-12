@@ -21,11 +21,15 @@ class User(Base):
 class Follow(Base):
     __tablename__ = "follows"
 
-    follower_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True)
-    followed_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True, index=True)
+    follower_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    followed_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True, index=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
 
-    follower: Mapped["User"] = relationship(foreign_keys=[follower_id])
-    followed: Mapped["User"] = relationship(foreign_keys=[followed_id])
+    follower: Mapped["User"] = relationship(foreign_keys=[follower_id], passive_deletes=True)
+    followed: Mapped["User"] = relationship(foreign_keys=[followed_id], passive_deletes=True)

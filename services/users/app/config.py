@@ -33,10 +33,10 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _require_discrete_db_fields_together(self) -> "Settings":
-        discrete_fields = (self.db_user, self.db_password, self.db_name)
-        if self.db_host and any(f is None for f in discrete_fields):
+        discrete_fields = (self.db_host, self.db_user, self.db_password, self.db_name)
+        if any(f is not None for f in discrete_fields) and any(f is None for f in discrete_fields):
             raise ValueError(
-                "DB_USER, DB_PASSWORD, and DB_NAME must all be set when DB_HOST is set"
+                "DB_HOST, DB_USER, DB_PASSWORD, and DB_NAME must all be set together"
             )
         return self
 
