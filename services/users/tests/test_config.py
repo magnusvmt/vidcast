@@ -64,13 +64,13 @@ def test_rejects_db_host_without_the_other_discrete_db_fields():
 
 def test_rejects_missing_db_config_outside_development():
     with pytest.raises(ValidationError):
-        Settings(environment="production", jwt_secret="a-real-secret")
+        Settings(environment="production", jwt_secret="a" * 32)
 
 
 def test_accepts_full_db_config_outside_development():
     settings = Settings(
         environment="production",
-        jwt_secret="a-real-secret",
+        jwt_secret="a" * 32,  # Must be at least 32 characters
         db_host="users-db-rw",
         db_port=5432,
         db_name="app",
