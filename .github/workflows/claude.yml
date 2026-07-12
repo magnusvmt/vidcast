@@ -42,12 +42,62 @@ jobs:
         with:
           fetch-depth: 1
 
+      # claude-code-action performs its own workflow-identity check before
+      # running: if this branch's copy of claude.yml differs from main's, it
+      # skips silently (job conclusion is still "success", no error anywhere)
+      # rather than risk running a modified workflow with elevated
+      # permissions - see anthropics/claude-code-action's token exchange,
+      # which rejects with "workflow_not_found_on_default_branch" and the
+      # action swallows that as a silent skip. That's a deliberate anti
+      # supply-chain-attack measure and must not be bypassed. Long-lived PR
+      # branches that predate a claude.yml change on main hit this
+      # indefinitely with zero visible signal (#54). Detect the same
+      # mismatch ourselves here - cheap, read-only, no elevated permissions -
+      # so we can post a visible warning instead of doing nothing.
+      - name: Detect stale claude.yml relative to main
+        id: check-stale-workflow
+        if: |
+          github.event_name == 'pull_request' ||
+          github.event_name == 'pull_request_review' ||
+          github.event_name == 'pull_request_review_comment' ||
+          (github.event_name == 'issue_comment' && github.event.issue.pull_request != null)
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          if [ -z "$HEAD_SHA" ]; then
+            HEAD_SHA=$(gh pr view "${{ github.event.issue.number }}" --repo "${{ github.repository }}" --json headRefOid --jq .headRefOid)
+          fi
+          MAIN_BLOB=$(gh api "repos/${{ github.repository }}/contents/.github/workflows/claude.yml?ref=main" --jq .sha)
+          PR_BLOB=$(gh api "repos/${{ github.repository }}/contents/.github/workflows/claude.yml?ref=$HEAD_SHA" --jq .sha)
+          if [ -n "$MAIN_BLOB" ] && [ -n "$PR_BLOB" ] && [ "$MAIN_BLOB" != "$PR_BLOB" ]; then
+            echo "stale=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "stale=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Warn about stale claude.yml
+        if: steps.check-stale-workflow.outputs.stale == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          NUMBER="${{ github.event.pull_request.number || github.event.issue.number }}"
+          gh issue comment "$NUMBER" --repo "${{ github.repository }}" --body "$(cat <<'EOF'
+          ⚠️ **`@claude` and automatic PR review are currently disabled on this branch.**
+
+          This PR's copy of `.github/workflows/claude.yml` differs from `main`. `claude-code-action` treats that as a workflow-identity mismatch and silently skips running (the job still shows as a green ✅, with no error) to avoid executing a modified workflow with elevated permissions. See [#54](https://github.com/magnusvmt/vidcast/issues/54).
+
+          Merge or rebase `main` into this branch to pick up the current `claude.yml` and restore `@claude` mentions and automatic PR review.
+          EOF
+          )"
+
       # Automatic PR review (bare pull_request event, no mention). Needs an
       # explicit prompt and tool allowlist since agent-mode has no GitHub
       # write access by default.
       - name: Run Claude Code (PR auto-review)
         id: claude-pr-review
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && steps.check-stale-workflow.outputs.stale != 'true'
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -76,7 +126,7 @@ jobs:
       # handling. Keep this step free of those inputs.
       - name: Run Claude Code (mention-triggered)
         id: claude-mention
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && steps.check-stale-workflow.outputs.stale != 'true'
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
