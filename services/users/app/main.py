@@ -14,7 +14,13 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="users", lifespan=lifespan)
+app = FastAPI(
+    title="users",
+    lifespan=lifespan,
+    docs_url="/docs" if settings.environment == "development" else None,
+    redoc_url="/redoc" if settings.environment == "development" else None,
+    openapi_url="/openapi.json" if settings.environment == "development" else None,
+)
 app.include_router(auth.router)
 app.include_router(users.router)
 
