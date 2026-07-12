@@ -79,3 +79,59 @@ def test_accepts_full_db_config_outside_development():
     )
 
     assert settings.environment == "production"
+
+
+def test_empty_jwt_secret_is_rejected_outside_development():
+    with pytest.raises(ValidationError):
+        Settings(
+            environment="production",
+            jwt_secret="",
+            db_host="users-db-rw",
+            db_port=5432,
+            db_name="app",
+            db_user="app",
+            db_password="s3cret",
+        )
+
+
+def test_empty_jwt_secret_is_fine_in_development():
+    # In development, even an empty JWT_SECRET is allowed (we allow any value)
+    settings = Settings(environment="development", jwt_secret="")
+    assert settings.jwt_secret == ""
+
+
+def test_allows_empty_db_password_with_db_host_set():
+    # Empty string is technically "set", just to an empty value. This should pass
+    # validation (though it will likely fail at connection time).
+    settings = Settings(
+        db_host="users-db-rw",
+        db_port=5432,
+        db_name="app",
+        db_user="app",
+        db_password="",
+    )
+    assert settings.db_password == ""
+
+
+def test_rejects_db_host_without_db_user():
+    # None (not set) should be rejected, but empty string should pass
+    with pytest.raises(ValidationError):
+        Settings(
+            db_host="users-db-rw",
+            db_port=5432,
+            db_name="app",
+            db_user=None,
+            db_password="s3cret",
+        )
+
+
+def test_rejects_db_host_without_db_name():
+    # None (not set) should be rejected, but empty string should pass
+    with pytest.raises(ValidationError):
+        Settings(
+            db_host="users-db-rw",
+            db_port=5432,
+            db_name=None,
+            db_user="app",
+            db_password="s3cret",
+        )

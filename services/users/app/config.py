@@ -23,7 +23,9 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _reject_insecure_secret_outside_dev(self) -> "Settings":
-        if self.environment != "development" and self.jwt_secret == _INSECURE_DEFAULT_JWT_SECRET:
+        if self.environment != "development" and (
+            not self.jwt_secret or self.jwt_secret == _INSECURE_DEFAULT_JWT_SECRET
+        ):
             raise ValueError(
                 "JWT_SECRET must be set to a real secret when ENVIRONMENT is not 'development'"
             )
@@ -32,7 +34,7 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def _require_discrete_db_fields_together(self) -> "Settings":
         discrete_fields = (self.db_user, self.db_password, self.db_name)
-        if self.db_host and not all(discrete_fields):
+        if self.db_host and any(f is None for f in discrete_fields):
             raise ValueError(
                 "DB_USER, DB_PASSWORD, and DB_NAME must all be set when DB_HOST is set"
             )
