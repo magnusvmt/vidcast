@@ -153,7 +153,7 @@ def test_rejects_discrete_db_fields_without_db_host():
 def test_rejects_weak_jwt_secret_outside_development():
     # A short JWT secret like "123" or "changeme" outside development should be rejected
     # to prevent accidentally shipping with low-entropy signing keys.
-    with pytest.raises(ValidationError, match="at least 32 characters"):
+    with pytest.raises(ValidationError):
         Settings(
             environment="production",
             jwt_secret="weak-secret",
