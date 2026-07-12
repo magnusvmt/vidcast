@@ -24,10 +24,11 @@ def register(payload: UserCreate, db: Session = Depends(get_db)) -> User:
     except IntegrityError as exc:
         db.rollback()
         # Check if this is a duplicate username/email constraint violation.
-        # SQLAlchemy wraps the DBAPI exception in exc.orig; check for constraint names
-        # that indicate a duplicate key violation on username or email.
+        # SQLAlchemy wraps the DBAPI exception in exc.orig; both backends' error
+        # text includes the field name ("users_username_key" on Postgres, "users.username"
+        # on SQLite), so checking for the field name alone covers both.
         exc_str = str(exc.orig).lower()
-        if "username" in exc_str or "email" in exc_str or "users_username_key" in exc_str or "users_email_key" in exc_str:
+        if "username" in exc_str or "email" in exc_str:
             detail = "username or email already registered"
         else:
             # Re-raise if it's some other integrity constraint we didn't expect

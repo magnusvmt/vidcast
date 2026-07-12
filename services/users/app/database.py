@@ -1,6 +1,7 @@
 from collections.abc import Generator
 
 from sqlalchemy import create_engine, event
+from sqlalchemy.engine import Engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from app.config import settings
@@ -18,10 +19,13 @@ engine = create_engine(
     pool_recycle=1800,
 )
 
-# Enable FK enforcement for SQLite (ondelete="CASCADE" doesn't work otherwise)
-@event.listens_for(engine, "connect")
+# Enable FK enforcement for SQLite (ondelete="CASCADE" doesn't work otherwise).
+# Bound to the Engine class (dialect-filtered) rather than the module-global
+# `engine` instance so it also applies to engines tests construct themselves,
+# e.g. services/users/tests/conftest.py's in-memory SQLite engine.
+@event.listens_for(Engine, "connect")
 def set_sqlite_pragma(dbapi_conn, connection_record):
-    if database_url.startswith("sqlite"):
+    if dbapi_conn.__class__.__module__.startswith("sqlite3"):
         cursor = dbapi_conn.cursor()
         cursor.execute("PRAGMA foreign_keys=ON")
         cursor.close()
