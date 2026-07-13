@@ -12,6 +12,7 @@ jobs:
     outputs:
       echo: ${{ steps.filter.outputs.echo }}
       users: ${{ steps.filter.outputs.users }}
+      chat: ${{ steps.filter.outputs.chat }}
       helm: ${{ steps.filter.outputs.helm }}
       terraform: ${{ steps.filter.outputs.terraform }}
       workflow: ${{ steps.filter.outputs.workflow }}
@@ -27,6 +28,8 @@ jobs:
               - 'services/echo/**'
             users:
               - 'services/users/**'
+            chat:
+              - 'services/chat/**'
             helm:
               - 'deploy/charts/**'
             terraform:
@@ -81,6 +84,29 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository }}/echo:${{ github.sha }}
             ghcr.io/${{ github.repository }}/echo:latest
+
+  go-chat:
+    name: chat service (Go)
+    needs: changes
+    if: needs.changes.outputs.chat == 'true' || needs.changes.outputs.workflow == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/chat
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+      - name: Lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          working-directory: services/chat
+          version: v1.62.2
+      - name: Test
+        run: go test ./... -race
+      - name: Build image
+        run: docker build -t chat:ci .
 
   python-users:
     name: users service (Python)
