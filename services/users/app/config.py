@@ -58,7 +58,7 @@ class Settings(BaseSettings):
     def resolved_database_url(self) -> str:
         # CloudNativePG's generated app secret exposes discrete host/port/dbname/user/password
         # keys rather than a single URI, and its URI uses the psycopg2 scheme, not psycopg3's.
-        if self.db_host:
+        if self.db_host is not None:
             url = URL.create(
                 drivername="postgresql+psycopg",
                 username=self.db_user,

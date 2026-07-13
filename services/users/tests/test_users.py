@@ -94,6 +94,22 @@ def test_get_unknown_user_returns_404(client):
     assert response.status_code == 404
 
 
+def test_follow_requires_authentication(client):
+    register_and_login(client, "alice")
+
+    response = client.post("/users/alice/follow")
+
+    assert response.status_code == 401
+
+
+def test_unfollow_requires_authentication(client):
+    register_and_login(client, "alice")
+
+    response = client.delete("/users/alice/follow")
+
+    assert response.status_code == 401
+
+
 def test_follow_and_list_followers(client):
     alice_token = register_and_login(client, "alice")
     register_and_login(client, "bob")
