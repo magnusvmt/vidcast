@@ -34,7 +34,9 @@ func newWebSocketHandler(hub *Hub, broker *Broker) http.HandlerFunc {
 		}
 		defer func() { _ = conn.CloseNow() }()
 
-		ctx := r.Context()
+		ctx, stop := context.WithCancel(r.Context())
+		defer stop()
+
 		c := &client{send: make(chan []byte, 16)}
 		hub.join(room, c)
 
@@ -51,8 +53,27 @@ func newWebSocketHandler(hub *Hub, broker *Broker) http.HandlerFunc {
 			}
 		}()
 
+		go func() {
+			ticker := time.NewTicker(30 * time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ticker.C:
+					pingCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+					err := conn.Ping(pingCtx)
+					cancel()
+					if err != nil {
+						stop()
+						return
+					}
+				case <-ctx.Done():
+					return
+				}
+			}
+		}()
+
 		for {
-			readCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
+			readCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 			_, data, err := conn.Read(readCtx)
 			cancel()
 			if err != nil {

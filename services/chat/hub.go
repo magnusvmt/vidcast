@@ -46,18 +46,23 @@ func newHub(ctx context.Context, broker roomSubscriber) *Hub {
 
 func (h *Hub) join(roomName string, c *client) {
 	h.mu.Lock()
-	defer h.mu.Unlock()
 
 	r, ok := h.rooms[roomName]
-	if !ok {
-		subCtx, cancel := context.WithCancel(h.ctx)
-		r = &room{clients: make(map[*client]struct{}), cancel: cancel}
-		h.rooms[roomName] = r
-		h.broker.subscribe(subCtx, roomName, func(payload []byte) {
-			h.broadcastLocalRoom(r, payload)
-		})
+	if ok {
+		r.clients[c] = struct{}{}
+		h.mu.Unlock()
+		return
 	}
+
+	subCtx, cancel := context.WithCancel(h.ctx)
+	r = &room{clients: make(map[*client]struct{}), cancel: cancel}
+	h.rooms[roomName] = r
+	h.mu.Unlock()
+
 	r.clients[c] = struct{}{}
+	h.broker.subscribe(subCtx, roomName, func(payload []byte) {
+		h.broadcastLocalRoom(r, payload)
+	})
 }
 
 func (h *Hub) leave(roomName string, c *client) {
@@ -81,18 +86,12 @@ func (h *Hub) leave(roomName string, c *client) {
 // else in the room.
 func (h *Hub) broadcastLocal(roomName string, payload []byte) {
 	h.mu.Lock()
-	defer h.mu.Unlock()
-
 	r, ok := h.rooms[roomName]
+	h.mu.Unlock()
 	if !ok {
 		return
 	}
-	for c := range r.clients {
-		select {
-		case c.send <- payload:
-		default:
-		}
-	}
+	h.broadcastLocalRoom(r, payload)
 }
 
 // broadcastLocalRoom delivers payload to every client in the specific room
