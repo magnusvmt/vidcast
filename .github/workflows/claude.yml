@@ -99,8 +99,21 @@ jobs:
       # re-post findings already fixed/addressed, wasting a review pass and
       # adding to the comment volume that has previously triggered SDK
       # flakiness under concurrent same-PR invocation (see the note on the
-      # mention-triggered step below). Compare the diff against base
-      # before/after the push; skip the review only when they're identical.
+      # mention-triggered step below). Compare the diff before/after the push
+      # and skip the review only when they're identical.
+      #
+      # Must use triple-dot diff (base...head, i.e. against merge-base(base,
+      # head)) rather than two-tree diff (base head). `base` here is always
+      # the *current* base sha, but `before` is the PR's *old* head, made
+      # against whatever base was current at the time. If base has moved
+      # since then (any other PR merging in the meantime), a two-tree diff
+      # of `before` against the new `base` spuriously includes the reversal
+      # of every intervening upstream change, making an actual no-op rebase
+      # look like a real diff. Triple-dot diffs each side against its own
+      # merge-base with `base`, which cancels that drift out. (Caught live:
+      # rebasing PR #37 right after an unrelated PR merged to main triggered
+      # a spurious re-review despite this check already being in place.)
+      #
       # If the old `before` commit is no longer fetchable (e.g. already
       # garbage-collected after an earlier force-push), fail open - treat it
       # as changed and still review - rather than silently skip a real one.
@@ -115,8 +128,8 @@ jobs:
           if git cat-file -e "$before^{commit}" 2>/dev/null && \
              git cat-file -e "$after^{commit}" 2>/dev/null && \
              git cat-file -e "$base^{commit}" 2>/dev/null; then
-            before_diff="$(git diff "$base" "$before" | git hash-object --stdin)"
-            after_diff="$(git diff "$base" "$after" | git hash-object --stdin)"
+            before_diff="$(git diff "$base...$before" | git hash-object --stdin)"
+            after_diff="$(git diff "$base...$after" | git hash-object --stdin)"
             if [ "$before_diff" = "$after_diff" ]; then
               echo "skip=true" >> "$GITHUB_OUTPUT"
             else
