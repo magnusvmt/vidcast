@@ -165,6 +165,29 @@ func TestHub_BroadcastLocal_SkipsClientAfterLeave(t *testing.T) {
 	h.broadcastLocal("room-a", []byte("hello"))
 }
 
+// TestHub_Join_ConcurrentFirstJoinersDoNotRaceOnRoomCreation exercises two
+// goroutines calling join for the same not-yet-existing room at the same
+// time - e.g. two viewers connecting to a brand-new stream simultaneously.
+// Under -race, a room.clients write left outside Hub's lock would be
+// flagged as a concurrent map write here.
+func TestHub_Join_ConcurrentFirstJoinersDoNotRaceOnRoomCreation(t *testing.T) {
+	sub := newFakeSubscriber()
+	h := newHub(context.Background(), sub)
+
+	a := &client{send: make(chan []byte, 1)}
+	b := &client{send: make(chan []byte, 1)}
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() { defer wg.Done(); h.join("room-a", a) }()
+	go func() { defer wg.Done(); h.join("room-a", b) }()
+	wg.Wait()
+
+	if got := sub.subscribeCount("room-a"); got != 1 {
+		t.Fatalf("subscribeCount(room-a) = %d, want 1 (only the first joiner should create the subscription)", got)
+	}
+}
+
 func TestHub_BroadcastLocal_DoesNotBlockOnFullClientBuffer(t *testing.T) {
 	sub := newFakeSubscriber()
 	h := newHub(context.Background(), sub)

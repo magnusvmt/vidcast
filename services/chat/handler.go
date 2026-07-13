@@ -73,9 +73,13 @@ func newWebSocketHandler(hub *Hub, broker *Broker) http.HandlerFunc {
 		}()
 
 		for {
-			readCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
-			_, data, err := conn.Read(readCtx)
-			cancel()
+			// No per-read deadline here: coder/websocket closes the whole
+			// connection when a Read's context is done, not just that one
+			// call, so wrapping this in a short timeout would disconnect
+			// idle-but-healthy clients. Liveness is instead the ping/pong
+			// loop's job - it cancels ctx (via stop) on a failed ping, which
+			// unblocks this Read with an error.
+			_, data, err := conn.Read(ctx)
 			if err != nil {
 				break
 			}

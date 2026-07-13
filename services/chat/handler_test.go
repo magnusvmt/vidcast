@@ -124,6 +124,33 @@ func TestWebSocketHandler_DoesNotDeliverAcrossDifferentRooms(t *testing.T) {
 	expectNoMessage(t, carol)
 }
 
+// TestWebSocketHandler_IdleReadOnlyClientStaysConnected asserts a client
+// that never sends a message (e.g. watching chat without typing) stays
+// connected: conn.Read must not be wrapped in a short-lived context, since
+// coder/websocket closes the whole connection - not just that call - when a
+// Read's context deadline fires. Liveness is the ping/pong loop's job alone.
+func TestWebSocketHandler_IdleReadOnlyClientStaysConnected(t *testing.T) {
+	mr := miniredis.RunT(t)
+	srv := newTestServer(t, mr.Addr())
+
+	alice := dialChat(t, srv, "stream-1", "alice")
+	bob := dialChat(t, srv, "stream-1", "bob")
+	time.Sleep(50 * time.Millisecond)
+
+	// Bob never sends anything. If Read were ever wrapped in a short
+	// per-call timeout again, this wait would be enough to trip it and
+	// close bob's connection out from under him.
+	time.Sleep(300 * time.Millisecond)
+
+	if err := alice.Write(context.Background(), websocket.MessageText, []byte("still there?")); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	got := readMessage(t, bob)
+	if got.Body != "still there?" {
+		t.Errorf("body = %q, want %q", got.Body, "still there?")
+	}
+}
+
 func TestWebSocketHandler_RequiresRoomQueryParameter(t *testing.T) {
 	mr := miniredis.RunT(t)
 	srv := newTestServer(t, mr.Addr())

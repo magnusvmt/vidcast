@@ -56,10 +56,10 @@ func (h *Hub) join(roomName string, c *client) {
 
 	subCtx, cancel := context.WithCancel(h.ctx)
 	r = &room{clients: make(map[*client]struct{}), cancel: cancel}
+	r.clients[c] = struct{}{}
 	h.rooms[roomName] = r
 	h.mu.Unlock()
 
-	r.clients[c] = struct{}{}
 	h.broker.subscribe(subCtx, roomName, func(payload []byte) {
 		h.broadcastLocalRoom(r, payload)
 	})
