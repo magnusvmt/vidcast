@@ -52,7 +52,9 @@ func newWebSocketHandler(hub *Hub, broker *Broker) http.HandlerFunc {
 		}()
 
 		for {
-			_, data, err := conn.Read(ctx)
+			readCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
+			_, data, err := conn.Read(readCtx)
+			cancel()
 			if err != nil {
 				break
 			}

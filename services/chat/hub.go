@@ -54,7 +54,7 @@ func (h *Hub) join(roomName string, c *client) {
 		r = &room{clients: make(map[*client]struct{}), cancel: cancel}
 		h.rooms[roomName] = r
 		h.broker.subscribe(subCtx, roomName, func(payload []byte) {
-			h.broadcastLocal(roomName, payload)
+			h.broadcastLocalRoom(r, payload)
 		})
 	}
 	r.clients[c] = struct{}{}
@@ -87,6 +87,21 @@ func (h *Hub) broadcastLocal(roomName string, payload []byte) {
 	if !ok {
 		return
 	}
+	for c := range r.clients {
+		select {
+		case c.send <- payload:
+		default:
+		}
+	}
+}
+
+// broadcastLocalRoom delivers payload to every client in the specific room
+// pointer. Unlike broadcastLocal, which looks up the room by name, this
+// avoids the race where a stale subscription goroutine from a previous
+// incarnation of the same room delivers to the new room's clients.
+func (h *Hub) broadcastLocalRoom(r *room, payload []byte) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
 	for c := range r.clients {
 		select {
 		case c.send <- payload:
