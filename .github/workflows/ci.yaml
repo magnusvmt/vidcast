@@ -11,6 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       echo: ${{ steps.filter.outputs.echo }}
+      users: ${{ steps.filter.outputs.users }}
       helm: ${{ steps.filter.outputs.helm }}
       terraform: ${{ steps.filter.outputs.terraform }}
       workflow: ${{ steps.filter.outputs.workflow }}
@@ -24,6 +25,8 @@ jobs:
           filters: |
             echo:
               - 'services/echo/**'
+            users:
+              - 'services/users/**'
             helm:
               - 'deploy/charts/**'
             terraform:
@@ -78,6 +81,28 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository }}/echo:${{ github.sha }}
             ghcr.io/${{ github.repository }}/echo:latest
+
+  python-users:
+    name: users service (Python)
+    needs: changes
+    if: needs.changes.outputs.users == 'true' || needs.changes.outputs.workflow == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/users
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+      - name: Lint
+        run: ruff check .
+      - name: Test
+        run: pytest -q
+      - name: Build image
+        run: docker build -t users:ci .
 
   helm:
     name: Helm chart checks

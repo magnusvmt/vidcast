@@ -6,6 +6,10 @@
 *.exe
 *.test
 /services/*/bin/
+*.db
+__pycache__/
+*.pyc
+.venv/
 
 /deploy/charts/*/charts/
 
