@@ -19,6 +19,8 @@ ingress:
 probes:
   # /healthz checks Redis connectivity, unlike / which just reports version
   path: /healthz
+  # The handler's Redis Ping has a 2s ctx timeout; give kubelet headroom (default 1s)
+  timeoutSeconds: 3
 
 env:
   - name: VERSION

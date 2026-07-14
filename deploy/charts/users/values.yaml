@@ -19,6 +19,8 @@ ingress:
 probes:
   # /healthz checks DB connectivity, unlike / which just reports version
   path: /healthz
+  # The handler has no explicit timeout and relies on the Postgres driver; give kubelet headroom
+  timeoutSeconds: 5
 
 env:
   - name: VERSION

@@ -30,10 +30,16 @@ spec:
             httpGet:
               path: {{ (.Values.probes).path | default "/" }}
               port: http
+            {{- with (.Values.probes).timeoutSeconds }}
+            timeoutSeconds: {{ . }}
+            {{- end }}
           livenessProbe:
             httpGet:
-              path: {{ (.Values.probes).path | default "/" }}
+              path: {{ (.Values.probes).livenessPath | default "/" }}
               port: http
+            {{- with (.Values.probes).timeoutSeconds }}
+            timeoutSeconds: {{ . }}
+            {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           securityContext:
