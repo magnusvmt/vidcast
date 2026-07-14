@@ -108,6 +108,32 @@ jobs:
       - name: Build image
         run: docker build -t chat:ci .
 
+  ghcr-publish-chat:
+    name: Publish chat image to GHCR
+    needs: [changes, go-chat]
+    if: |
+      needs.go-chat.result == 'success' &&
+      github.ref == 'refs/heads/main' &&
+      (needs.changes.outputs.chat == 'true' || needs.changes.outputs.workflow == 'true')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: services/chat
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}/chat:${{ github.sha }}
+            ghcr.io/${{ github.repository }}/chat:latest
+
   python-users:
     name: users service (Python)
     needs: changes
@@ -129,6 +155,32 @@ jobs:
         run: pytest -q
       - name: Build image
         run: docker build -t users:ci .
+
+  ghcr-publish-users:
+    name: Publish users image to GHCR
+    needs: [changes, python-users]
+    if: |
+      needs.python-users.result == 'success' &&
+      github.ref == 'refs/heads/main' &&
+      (needs.changes.outputs.users == 'true' || needs.changes.outputs.workflow == 'true')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: services/users
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}/users:${{ github.sha }}
+            ghcr.io/${{ github.repository }}/users:latest
 
   helm:
     name: Helm chart checks
