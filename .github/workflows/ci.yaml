@@ -141,13 +141,21 @@ jobs:
         with:
           version: v3.16.4
       - name: helm dependency update
-        run: helm dependency update deploy/charts/echo
+        run: |
+          helm dependency update deploy/charts/echo
+          helm dependency update deploy/charts/users
+          helm dependency update deploy/charts/chat
       - name: helm lint
         run: |
           helm lint deploy/charts/vidcast-lib
           helm lint deploy/charts/echo
+          helm lint deploy/charts/users
+          helm lint deploy/charts/chat
       - name: helm template
-        run: helm template test-release deploy/charts/echo
+        run: |
+          helm template test-release deploy/charts/echo
+          helm template test-release deploy/charts/users
+          helm template test-release deploy/charts/chat
 
   terraform:
     name: Terraform checks

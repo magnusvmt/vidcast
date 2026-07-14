@@ -1,0 +1,1 @@
+{{ include "vidcast-lib.service" . }}
