@@ -28,11 +28,11 @@ spec:
           {{- end }}
           readinessProbe:
             httpGet:
-              path: /
+              path: {{ (.Values.probes).path | default "/" }}
               port: http
           livenessProbe:
             httpGet:
-              path: /
+              path: {{ (.Values.probes).path | default "/" }}
               port: http
           resources:
             {{- toYaml .Values.resources | nindent 12 }}

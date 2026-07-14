@@ -1,0 +1,10 @@
+apiVersion: v2
+name: chat
+description: Live chat service (Go, WebSockets + Redis pub/sub)
+type: application
+version: 0.1.0
+appVersion: "dev"
+dependencies:
+  - name: vidcast-lib
+    version: 0.1.0
+    repository: "file://../vidcast-lib"
