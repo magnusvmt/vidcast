@@ -112,6 +112,7 @@ jobs:
     name: Publish chat image to GHCR
     needs: [changes, go-chat]
     if: |
+      needs.go-chat.result == 'success' &&
       github.ref == 'refs/heads/main' &&
       (needs.changes.outputs.chat == 'true' || needs.changes.outputs.workflow == 'true')
     runs-on: ubuntu-latest
@@ -159,6 +160,7 @@ jobs:
     name: Publish users image to GHCR
     needs: [changes, python-users]
     if: |
+      needs.python-users.result == 'success' &&
       github.ref == 'refs/heads/main' &&
       (needs.changes.outputs.users == 'true' || needs.changes.outputs.workflow == 'true')
     runs-on: ubuntu-latest
