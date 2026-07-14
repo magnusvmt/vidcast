@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+    {{- include "mediamtx.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "mediamtx.labels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "mediamtx.labels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: mediamtx
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: rtmp
+              containerPort: {{ .Values.rtmp.port }}
+            - name: hls
+              containerPort: {{ .Values.hls.port }}
+          volumeMounts:
+            - name: config
+              mountPath: /mediamtx.yml
+              subPath: mediamtx.yml
+          # No HTTP health endpoint is enabled (api/metrics are off), so
+          # probe the HLS listener directly instead of an httpGet path.
+          readinessProbe:
+            tcpSocket:
+              port: hls
+            timeoutSeconds: {{ .Values.probes.timeoutSeconds }}
+          livenessProbe:
+            tcpSocket:
+              port: hls
+            timeoutSeconds: {{ .Values.probes.timeoutSeconds }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: {{ .Values.securityContext.runAsUser | default 65532 }}
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+      volumes:
+        - name: config
+          configMap:
+            name: {{ .Release.Name }}-config

@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-rtmp
+  labels:
+    {{- include "mediamtx.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.rtmp.service.type }}
+  selector:
+    {{- include "mediamtx.labels" . | nindent 4 }}
+  ports:
+    - name: rtmp
+      port: {{ .Values.rtmp.port }}
+      targetPort: rtmp

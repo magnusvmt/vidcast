@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-config
+  labels:
+    {{- include "mediamtx.labels" . | nindent 4 }}
+data:
+  # Partial config: any key left unset falls back to MediaMTX's built-in
+  # default. Only RTMP and HLS are turned on here - every other protocol
+  # MediaMTX enables by default (RTSP, WebRTC, SRT, MoQ) is explicitly
+  # disabled since this chart only creates Services for RTMP and HLS.
+  mediamtx.yml: |
+    rtsp: false
+    rtmp: true
+    rtmpAddress: :{{ .Values.rtmp.port }}
+    hls: true
+    hlsAddress: :{{ .Values.hls.port }}
+    webrtc: false
+    srt: false
+    moq: false
