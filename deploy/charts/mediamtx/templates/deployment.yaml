@@ -28,10 +28,13 @@ spec:
               mountPath: /mediamtx.yml
               subPath: mediamtx.yml
           # No HTTP health endpoint is enabled (api/metrics are off), so
-          # probe the HLS listener directly instead of an httpGet path.
+          # probe the listeners directly instead of an httpGet path.
+          # Readiness checks the RTMP ingest port so a broken ingest path
+          # takes the pod out of rotation; liveness checks the HLS output
+          # port so an unresponsive HTTP server triggers a restart.
           readinessProbe:
             tcpSocket:
-              port: hls
+              port: rtmp
             timeoutSeconds: {{ .Values.probes.timeoutSeconds }}
           livenessProbe:
             tcpSocket:
