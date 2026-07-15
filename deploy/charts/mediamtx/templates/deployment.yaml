@@ -6,6 +6,14 @@ metadata:
     {{- include "mediamtx.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
+  # MediaMTX keeps published streams in per-pod memory (see replicaCount
+  # comment in values.yaml). With the default RollingUpdate strategy,
+  # Kubernetes would bring up a second, stream-less pod before terminating
+  # the old one, and since both Services select the same pod labels,
+  # publishers/viewers could get routed to the empty pod mid-rollout.
+  # Recreate guarantees at most one pod backs these Services at a time.
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       {{- include "mediamtx.labels" . | nindent 6 }}
