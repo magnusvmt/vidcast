@@ -10,11 +10,4 @@ data:
   # MediaMTX enables by default (RTSP, WebRTC, SRT, MoQ) is explicitly
   # disabled since this chart only creates Services for RTMP and HLS.
   mediamtx.yml: |
-    rtsp: false
-    rtmp: true
-    rtmpAddress: :{{ .Values.rtmp.port }}
-    hls: true
-    hlsAddress: :{{ .Values.hls.port }}
-    webrtc: false
-    srt: false
-    moq: false
+    {{- include "mediamtx.configData" . | nindent 4 }}

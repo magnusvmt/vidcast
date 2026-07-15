@@ -13,6 +13,8 @@ spec:
     metadata:
       labels:
         {{- include "mediamtx.labels" . | nindent 8 }}
+      annotations:
+        checksum/config: {{ include "mediamtx.configData" . | sha256sum }}
     spec:
       containers:
         - name: mediamtx
@@ -35,11 +37,15 @@ spec:
           readinessProbe:
             tcpSocket:
               port: rtmp
-            timeoutSeconds: {{ .Values.probes.timeoutSeconds }}
+            {{- with .Values.probes.timeoutSeconds }}
+            timeoutSeconds: {{ . }}
+            {{- end }}
           livenessProbe:
             tcpSocket:
               port: hls
-            timeoutSeconds: {{ .Values.probes.timeoutSeconds }}
+            {{- with .Values.probes.timeoutSeconds }}
+            timeoutSeconds: {{ . }}
+            {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           securityContext:
