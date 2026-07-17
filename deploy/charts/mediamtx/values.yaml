@@ -1,0 +1,49 @@
+# MediaMTX keeps published streams in each pod's memory, so replicas don't
+# share state - a viewer routed to a different pod than the publisher would
+# see no stream. Keep this at 1 until clustering config is added.
+replicaCount: 1
+
+image:
+  # bluenviron/mediamtx ships as a single static binary on scratch; no
+  # in-cluster registry mirroring needed like the polyglot services.
+  repository: bluenviron/mediamtx
+  tag: "1.19.2"
+  pullPolicy: IfNotPresent
+
+rtmp:
+  port: 1935
+  service:
+    # RTMP isn't HTTP, so it can't ride the Traefik ingress like the other
+    # charts' HTTP services - it needs its own externally reachable port.
+    # NodePort also works by overriding type where no LB is available.
+    #
+    # WARNING: LoadBalancer publishes an unauthenticated ingest endpoint.
+    # Anyone who can reach the LB IP on port 1935 can publish (or overwrite)
+    # a stream, since MediaMTX's auth webhook is out of scope for this chart
+    # (tracked in #20). Do not point this at a real internet-reachable LB
+    # until auth is implemented.
+    type: LoadBalancer
+
+hls:
+  port: 8888
+  service:
+    port: 80
+  ingress:
+    enabled: true
+    host: mediamtx.vidcast.localhost
+    annotations: {}
+
+probes:
+  timeoutSeconds: 5
+
+resources:
+  requests:
+    cpu: 25m
+    memory: 32Mi
+  limits:
+    cpu: 250m
+    memory: 128Mi
+
+# runAsUser defaults to 65532 in the deployment template, same convention as
+# vidcast-lib's services even though this chart doesn't depend on it.
+securityContext: {}

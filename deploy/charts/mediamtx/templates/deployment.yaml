@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+    {{- include "mediamtx.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  # MediaMTX keeps published streams in per-pod memory (see replicaCount
+  # comment in values.yaml). With the default RollingUpdate strategy,
+  # Kubernetes would bring up a second, stream-less pod before terminating
+  # the old one, and since both Services select the same pod labels,
+  # publishers/viewers could get routed to the empty pod mid-rollout.
+  # Recreate guarantees at most one pod backs these Services at a time.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "mediamtx.labels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "mediamtx.labels" . | nindent 8 }}
+      annotations:
+        checksum/config: {{ include "mediamtx.configData" . | sha256sum }}
+    spec:
+      containers:
+        - name: mediamtx
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: rtmp
+              containerPort: {{ .Values.rtmp.port }}
+            - name: hls
+              containerPort: {{ .Values.hls.port }}
+          volumeMounts:
+            - name: config
+              mountPath: /mediamtx.yml
+              subPath: mediamtx.yml
+          # No HTTP health endpoint is enabled (api/metrics are off), so
+          # probe the listeners directly instead of an httpGet path.
+          # Readiness checks the RTMP ingest port so a broken ingest path
+          # takes the pod out of rotation; liveness checks the HLS output
+          # port so an unresponsive HTTP server triggers a restart.
+          readinessProbe:
+            tcpSocket:
+              port: rtmp
+            {{- with .Values.probes.timeoutSeconds }}
+            timeoutSeconds: {{ . }}
+            {{- end }}
+          livenessProbe:
+            tcpSocket:
+              port: hls
+            {{- with .Values.probes.timeoutSeconds }}
+            timeoutSeconds: {{ . }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: {{ .Values.securityContext.runAsUser | default 65532 }}
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+      volumes:
+        - name: config
+          configMap:
+            name: {{ .Release.Name }}-config

@@ -203,11 +203,13 @@ jobs:
           helm lint deploy/charts/echo
           helm lint deploy/charts/users
           helm lint deploy/charts/chat
+          helm lint deploy/charts/mediamtx
       - name: helm template
         run: |
           helm template test-release deploy/charts/echo
           helm template test-release deploy/charts/users
           helm template test-release deploy/charts/chat
+          helm template test-release deploy/charts/mediamtx
 
   terraform:
     name: Terraform checks

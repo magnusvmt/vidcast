@@ -11,6 +11,11 @@ ports:
   - port: 443:443
     nodeFilters:
       - loadbalancer
+  # RTMP ingest (MediaMTX) - not HTTP, so it can't share the 80/443
+  # Traefik ingress and needs its own port published to the host.
+  - port: 1935:1935
+    nodeFilters:
+      - loadbalancer
 registries:
   create:
     name: vidcast-registry
