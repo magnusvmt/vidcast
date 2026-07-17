@@ -32,6 +32,7 @@ func registerMediaMTXRoutes(mux *http.ServeMux, s *store) {
 func newMediaMTXAuthHandler(s *store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req authWebhookRequest
+		r.Body = http.MaxBytesReader(w, r.Body, 4096)
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			writeError(w, http.StatusBadRequest, err)
 			return
@@ -63,6 +64,7 @@ func newMediaMTXAuthHandler(s *store) http.HandlerFunc {
 func newMediaMTXUnpublishHandler(s *store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req authWebhookRequest
+		r.Body = http.MaxBytesReader(w, r.Body, 4096)
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			writeError(w, http.StatusBadRequest, err)
 			return
@@ -77,18 +79,12 @@ func newMediaMTXUnpublishHandler(s *store) http.HandlerFunc {
 	}
 }
 
-// resolveChannelFromPath finds the channel a MediaMTX path refers to, trying
-// both conventions this service supports: the trailing segment as a stream
-// key, then the trailing segment as a channel slug directly.
+// resolveChannelFromPath finds the channel a MediaMTX path refers to by
+// interpreting the trailing path segment as a stream key.
 func resolveChannelFromPath(s *store, path string) (string, bool) {
 	segment := lastPathSegment(path)
-	if slug, ok := s.FindByKey(segment); ok {
-		return slug, true
-	}
-	if _, ok := s.Get(segment); ok {
-		return segment, true
-	}
-	return "", false
+	slug, ok := s.FindByKey(segment)
+	return slug, ok
 }
 
 func lastPathSegment(path string) string {

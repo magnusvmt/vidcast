@@ -126,7 +126,7 @@ func TestMediaMTXUnpublish_MarksChannelOfflineByPath(t *testing.T) {
 	}
 }
 
-func TestMediaMTXUnpublish_MarksChannelOfflineWhenPathIsBareSlug(t *testing.T) {
+func TestMediaMTXUnpublish_RejectsBareSlugWithoutAKey(t *testing.T) {
 	s := newStore()
 	if _, err := s.CreateKey("alice"); err != nil {
 		t.Fatalf("CreateKey() error = %v", err)
@@ -144,8 +144,8 @@ func TestMediaMTXUnpublish_MarksChannelOfflineWhenPathIsBareSlug(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d (body: %s)", rec.Code, http.StatusOK, rec.Body.String())
 	}
-	if ch, _ := s.Get("alice"); ch.Live {
-		t.Error("channel still live after unpublish")
+	if ch, _ := s.Get("alice"); !ch.Live {
+		t.Error("channel marked offline when bare slug was used without a stream key")
 	}
 }
 
