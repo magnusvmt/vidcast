@@ -79,12 +79,20 @@ func newMediaMTXUnpublishHandler(s *store) http.HandlerFunc {
 	}
 }
 
-// resolveChannelFromPath finds the channel a MediaMTX path refers to by
-// interpreting the trailing path segment as a stream key.
+// resolveChannelFromPath finds the channel a MediaMTX path refers to.
+// It first tries the trailing path segment as a stream key (FindByKey);
+// if that fails it falls back to treating it as a bare slug. The bare-slug
+// fallback is needed for the password-field convention, where the path is
+// just the slug and the key was never embedded in the path.
 func resolveChannelFromPath(s *store, path string) (string, bool) {
 	segment := lastPathSegment(path)
-	slug, ok := s.FindByKey(segment)
-	return slug, ok
+	if slug, ok := s.FindByKey(segment); ok {
+		return slug, true
+	}
+	if ch, ok := s.Get(segment); ok {
+		return ch.Slug, true
+	}
+	return "", false
 }
 
 func lastPathSegment(path string) string {

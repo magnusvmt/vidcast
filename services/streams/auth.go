@@ -1,8 +1,10 @@
 package main
 
 import (
+	"crypto/subtle"
 	"errors"
 	"net/http"
+	"strings"
 )
 
 var ErrUnauthorized = errors.New("unauthorized")
@@ -15,7 +17,10 @@ func requireAuth(apiKey string, fn http.HandlerFunc) http.HandlerFunc {
 		return fn
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("Authorization") != "Bearer "+apiKey {
+		const prefix = "Bearer "
+		header := r.Header.Get("Authorization")
+		if !strings.HasPrefix(header, prefix) ||
+			subtle.ConstantTimeCompare([]byte(header[len(prefix):]), []byte(apiKey)) != 1 {
 			writeError(w, http.StatusUnauthorized, ErrUnauthorized)
 			return
 		}

@@ -126,7 +126,7 @@ func TestMediaMTXUnpublish_MarksChannelOfflineByPath(t *testing.T) {
 	}
 }
 
-func TestMediaMTXUnpublish_RejectsBareSlugWithoutAKey(t *testing.T) {
+func TestMediaMTXUnpublish_ResolvesBareSlugForPasswordFieldConvention(t *testing.T) {
 	s := newStore()
 	if _, err := s.CreateKey("alice"); err != nil {
 		t.Fatalf("CreateKey() error = %v", err)
@@ -136,6 +136,9 @@ func TestMediaMTXUnpublish_RejectsBareSlugWithoutAKey(t *testing.T) {
 	}
 	mux := newMediaMTXTestMux(s)
 
+	// When the password-field convention is used (key in password field, not
+	// path), the path sent by MediaMTX's runOnUnpublish hook is just the bare
+	// slug. The handler should still resolve it via the bare-slug fallback.
 	body, _ := json.Marshal(authWebhookRequest{Path: "alice"})
 	req := httptest.NewRequest(http.MethodPost, "/mediamtx/unpublish", bytes.NewReader(body))
 	rec := httptest.NewRecorder()
@@ -144,8 +147,8 @@ func TestMediaMTXUnpublish_RejectsBareSlugWithoutAKey(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d (body: %s)", rec.Code, http.StatusOK, rec.Body.String())
 	}
-	if ch, _ := s.Get("alice"); !ch.Live {
-		t.Error("channel marked offline when bare slug was used without a stream key")
+	if ch, _ := s.Get("alice"); ch.Live {
+		t.Error("channel still live after unpublish with bare slug")
 	}
 }
 

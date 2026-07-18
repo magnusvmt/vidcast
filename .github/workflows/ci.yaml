@@ -13,6 +13,7 @@ jobs:
       echo: ${{ steps.filter.outputs.echo }}
       users: ${{ steps.filter.outputs.users }}
       chat: ${{ steps.filter.outputs.chat }}
+      streams: ${{ steps.filter.outputs.streams }}
       helm: ${{ steps.filter.outputs.helm }}
       terraform: ${{ steps.filter.outputs.terraform }}
       workflow: ${{ steps.filter.outputs.workflow }}
@@ -30,6 +31,8 @@ jobs:
               - 'services/users/**'
             chat:
               - 'services/chat/**'
+            streams:
+              - 'services/streams/**'
             helm:
               - 'deploy/charts/**'
             terraform:
@@ -108,6 +111,29 @@ jobs:
       - name: Build image
         run: docker build -t chat:ci .
 
+  go-streams:
+    name: streams service (Go)
+    needs: changes
+    if: needs.changes.outputs.streams == 'true' || needs.changes.outputs.workflow == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/streams
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+      - name: Lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          working-directory: services/streams
+          version: v1.62.2
+      - name: Test
+        run: go test ./... -race
+      - name: Build image
+        run: docker build -t streams:ci .
+
   ghcr-publish-chat:
     name: Publish chat image to GHCR
     needs: [changes, go-chat]
@@ -133,6 +159,32 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository }}/chat:${{ github.sha }}
             ghcr.io/${{ github.repository }}/chat:latest
+
+  ghcr-publish-streams:
+    name: Publish streams image to GHCR
+    needs: [changes, go-streams]
+    if: |
+      needs.go-streams.result == 'success' &&
+      github.ref == 'refs/heads/main' &&
+      (needs.changes.outputs.streams == 'true' || needs.changes.outputs.workflow == 'true')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: services/streams
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}/streams:${{ github.sha }}
+            ghcr.io/${{ github.repository }}/streams:latest
 
   python-users:
     name: users service (Python)

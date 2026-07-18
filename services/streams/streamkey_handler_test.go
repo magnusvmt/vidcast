@@ -243,7 +243,8 @@ func TestAuthMiddleware_NoopWhenApiKeyEmpty(t *testing.T) {
 		t.Fatalf("status = %d, want %d (body: %s)", rec.Code, http.StatusCreated, rec.Body.String())
 	}
 }
-	func jsonHasField(t *testing.T, body []byte, field string) bool {
+
+func jsonHasField(t *testing.T, body []byte, field string) bool {
 	t.Helper()
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(body, &raw); err != nil {
