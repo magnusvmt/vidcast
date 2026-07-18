@@ -9,7 +9,7 @@ import (
 
 func newTestMux(s *store) http.Handler {
 	mux := http.NewServeMux()
-	registerStreamKeyRoutes(mux, s)
+	registerStreamKeyRoutes(mux, s, "")
 	return mux
 }
 
@@ -174,7 +174,76 @@ func TestRevokeStreamKey_NotFoundForUnknownChannel(t *testing.T) {
 	}
 }
 
-func jsonHasField(t *testing.T, body []byte, field string) bool {
+func TestAuthMiddleware_AllowsValidBearerToken(t *testing.T) {
+	mux := http.NewServeMux()
+	registerStreamKeyRoutes(mux, newStore(), "secret123")
+
+	req := httptest.NewRequest(http.MethodPost, "/channels/alice/stream-key", nil)
+	req.Header.Set("Authorization", "Bearer secret123")
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want %d (body: %s)", rec.Code, http.StatusCreated, rec.Body.String())
+	}
+}
+
+func TestAuthMiddleware_RejectsMissingBearerToken(t *testing.T) {
+	tests := []struct {
+		name    string
+		method  string
+		path    string
+		wantErr string
+	}{
+		{"POST", http.MethodPost, "/channels/alice/stream-key", "unauthorized"},
+		{"GET", http.MethodGet, "/channels/alice/stream-key", "unauthorized"},
+		{"PUT", http.MethodPut, "/channels/alice/stream-key", "unauthorized"},
+		{"DELETE", http.MethodDelete, "/channels/alice/stream-key", "unauthorized"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mux := http.NewServeMux()
+			registerStreamKeyRoutes(mux, newStore(), "secret123")
+
+			req := httptest.NewRequest(tt.method, tt.path, nil)
+			rec := httptest.NewRecorder()
+			mux.ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusUnauthorized {
+				t.Fatalf("status = %d, want %d (body: %s)", rec.Code, http.StatusUnauthorized, rec.Body.String())
+			}
+		})
+	}
+}
+
+func TestAuthMiddleware_RejectsWrongBearerToken(t *testing.T) {
+	mux := http.NewServeMux()
+	registerStreamKeyRoutes(mux, newStore(), "secret123")
+
+	req := httptest.NewRequest(http.MethodPost, "/channels/alice/stream-key", nil)
+	req.Header.Set("Authorization", "Bearer wrong-key")
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want %d (body: %s)", rec.Code, http.StatusUnauthorized, rec.Body.String())
+	}
+}
+
+func TestAuthMiddleware_NoopWhenApiKeyEmpty(t *testing.T) {
+	mux := http.NewServeMux()
+	registerStreamKeyRoutes(mux, newStore(), "")
+
+	req := httptest.NewRequest(http.MethodPost, "/channels/alice/stream-key", nil)
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want %d (body: %s)", rec.Code, http.StatusCreated, rec.Body.String())
+	}
+}
+	func jsonHasField(t *testing.T, body []byte, field string) bool {
 	t.Helper()
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(body, &raw); err != nil {

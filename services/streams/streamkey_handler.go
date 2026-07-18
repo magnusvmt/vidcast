@@ -2,17 +2,18 @@ package main
 
 import "net/http"
 
-// registerStreamKeyRoutes wires the stream-key CRUD endpoints onto mux:
+// registerStreamKeyRoutes wires the stream-key CRUD endpoints onto mux,
+// protected by requireAuth when apiKey is non-empty:
 //
 //	POST   /channels/{slug}/stream-key  create a key (409 if one exists)
 //	GET    /channels/{slug}/stream-key  read metadata, never the secret
 //	PUT    /channels/{slug}/stream-key  rotate the key (404 if none exists)
 //	DELETE /channels/{slug}/stream-key  revoke the channel and its key
-func registerStreamKeyRoutes(mux *http.ServeMux, s *store) {
-	mux.HandleFunc("POST /channels/{slug}/stream-key", newCreateStreamKeyHandler(s))
-	mux.HandleFunc("GET /channels/{slug}/stream-key", newGetStreamKeyHandler(s))
-	mux.HandleFunc("PUT /channels/{slug}/stream-key", newRotateStreamKeyHandler(s))
-	mux.HandleFunc("DELETE /channels/{slug}/stream-key", newRevokeStreamKeyHandler(s))
+func registerStreamKeyRoutes(mux *http.ServeMux, s *store, apiKey string) {
+	mux.HandleFunc("POST /channels/{slug}/stream-key", requireAuth(apiKey, newCreateStreamKeyHandler(s)))
+	mux.HandleFunc("GET /channels/{slug}/stream-key", requireAuth(apiKey, newGetStreamKeyHandler(s)))
+	mux.HandleFunc("PUT /channels/{slug}/stream-key", requireAuth(apiKey, newRotateStreamKeyHandler(s)))
+	mux.HandleFunc("DELETE /channels/{slug}/stream-key", requireAuth(apiKey, newRevokeStreamKeyHandler(s)))
 }
 
 func newCreateStreamKeyHandler(s *store) http.HandlerFunc {

@@ -9,13 +9,14 @@ import (
 func main() {
 	version := getEnv("VERSION", "dev")
 	addr := getEnv("ADDR", ":8080")
+	apiKey := getEnv("API_KEY", "")
 
 	s := newStore()
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", newRootHandler(version))
 	mux.HandleFunc("GET /healthz", newHealthHandler())
-	registerStreamKeyRoutes(mux, s)
+	registerStreamKeyRoutes(mux, s, apiKey)
 	registerMediaMTXRoutes(mux, s)
 	registerChannelsRoutes(mux, s)
 
