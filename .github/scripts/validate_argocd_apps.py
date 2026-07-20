@@ -6,6 +6,7 @@ artifacts: catch malformed YAML and missing required fields without needing
 a live cluster to apply against.
 """
 import glob
+import os
 import sys
 
 import yaml
@@ -41,6 +42,11 @@ def check(path: str) -> bool:
                 ok = False
                 break
             node = node[key]
+
+    source_path = doc.get("spec", {}).get("source", {}).get("path")
+    if source_path is not None and not os.path.isdir(source_path):
+        print(f"{path}: spec.source.path '{source_path}' is not a real directory in this repo")
+        ok = False
 
     return ok
 

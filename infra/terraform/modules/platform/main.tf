@@ -30,4 +30,17 @@ resource "helm_release" "argocd" {
 
   wait    = true
   timeout = 300
+
+  set {
+    name  = "dex.enabled"
+    value = "false"
+  }
+  set {
+    name  = "notifications.controller.enabled"
+    value = "false"
+  }
+  set {
+    name  = "applicationset.enabled"
+    value = "false"
+  }
 }
