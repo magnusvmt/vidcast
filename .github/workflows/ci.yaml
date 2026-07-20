@@ -295,6 +295,6 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install PyYAML
-        run: pip install pyyaml
+        run: pip install pyyaml==6.0.2
       - name: Validate Application manifests
         run: python3 .github/scripts/validate_argocd_apps.py

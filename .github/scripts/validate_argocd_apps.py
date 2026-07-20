@@ -16,6 +16,7 @@ REQUIRED_PATHS = [
     ("spec", "source", "path"),
     ("spec", "destination", "server"),
     ("spec", "destination", "namespace"),
+    ("spec", "project"),
 ]
 
 
