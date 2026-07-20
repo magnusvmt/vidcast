@@ -20,3 +20,14 @@ resource "helm_release" "cloudnative_pg" {
   wait    = true
   timeout = 180
 }
+
+resource "helm_release" "argocd" {
+  name       = "argocd"
+  namespace  = kubernetes_namespace.platform.metadata[0].name
+  repository = "https://argoproj.github.io/argo-helm"
+  chart      = "argo-cd"
+  version    = "10.1.4"
+
+  wait    = true
+  timeout = 300
+}

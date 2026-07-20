@@ -1,4 +1,4 @@
-.PHONY: cluster destroy infra deploy hooks
+.PHONY: cluster destroy infra deploy argocd-bootstrap hooks
 
 hooks:
 	git config core.hooksPath .githooks
@@ -18,3 +18,10 @@ deploy:
 	helm dependency update deploy/charts/echo
 	helm upgrade --install echo deploy/charts/echo -n apps --create-namespace
 	kubectl rollout status deployment/echo -n apps --timeout=60s
+
+# One-time: after `make infra` installs ArgoCD, point it at this repo's
+# deploy/argocd/apps directory. ArgoCD reconciles everything under there
+# from then on - no further manual `helm upgrade --install` needed for
+# services onboarded to GitOps.
+argocd-bootstrap:
+	kubectl apply -f deploy/argocd/root-app.yaml

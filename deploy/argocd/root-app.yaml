@@ -1,0 +1,28 @@
+# App-of-apps root: the only Application applied by hand (see
+# `make argocd-bootstrap`). Everything under deploy/argocd/apps/ is
+# reconciled from here on, so adding a new service's Application manifest
+# to that directory is enough to bring it under GitOps management.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: root
+  namespace: platform
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/magnusvmt/vidcast.git
+    targetRevision: main
+    path: deploy/argocd/apps
+    directory:
+      recurse: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: platform
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

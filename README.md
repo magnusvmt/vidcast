@@ -24,6 +24,7 @@ docs/adr/            architecture decision records
 infra/k3d/           local cluster definition
 infra/terraform/     Terraform modules and environments
 deploy/charts/       Helm charts (shared library chart + one per service)
+deploy/argocd/       ArgoCD app-of-apps: root Application + one per service
 services/            application services, one directory each
 .github/workflows/   CI
 ```
@@ -35,9 +36,15 @@ Early scaffolding stage. See `docs/adr/` for foundational decisions.
 ## Quickstart
 
 ```
-make hooks     # enable repo git hooks (run once per clone)
-make cluster   # create the local k3d cluster
-make infra     # terraform apply against it
-make deploy    # build and deploy services
-make destroy   # tear everything down
+make hooks             # enable repo git hooks (run once per clone)
+make cluster           # create the local k3d cluster
+make infra             # terraform apply against it (installs ArgoCD, among other platform services)
+make argocd-bootstrap  # point ArgoCD at deploy/argocd/apps (one-time)
+make deploy            # build and push the echo service's dev image
+make destroy           # tear everything down
 ```
+
+Once bootstrapped, ArgoCD reconciles every Helm release under `deploy/charts/`
+that has a matching Application manifest in `deploy/argocd/apps/` - adding a
+new service there is enough to bring it under GitOps management, no extra
+`helm upgrade --install` required.
