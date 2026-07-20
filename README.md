@@ -41,15 +41,17 @@ make cluster           # create the local k3d cluster
 make infra             # terraform apply against it (installs ArgoCD, among other platform services)
 make argocd-bootstrap  # point ArgoCD at deploy/argocd/apps (one-time)
 make deploy            # build and push the echo service's dev image (only before bootstrapping)
+make deploy-chat       # build and push the chat service's dev image (only before bootstrapping)
+make deploy-users      # build and push the users service's dev image (only before bootstrapping)
 make destroy           # tear everything down
 ```
 
-> **Note:** After `make argocd-bootstrap` runs, the `echo` Application has
-> `selfHeal: true`, so ArgoCD continuously reconciles it from
-> `deploy/charts/echo` in git. Any local `helm upgrade --install` (including
-> `make deploy`) will be silently reverted on the next sync cycle. Use
-> `make deploy` only *before* bootstrapping, or push chart changes to git
-> instead.
+> **Note:** After `make argocd-bootstrap` runs, every Application with
+> `selfHeal: true` (echo, chat, users, mediamtx) is continuously reconciled from
+> its chart in git. Any local `helm upgrade --install` (including
+> `make deploy`, `make deploy-chat`, `make deploy-users`) will be silently
+> reverted on the next sync cycle. Use these targets only *before* bootstrapping,
+> or push chart changes to git instead.
 
 Once bootstrapped, ArgoCD reconciles every Helm release under `deploy/charts/`
 that has a matching Application manifest in `deploy/argocd/apps/` - adding a

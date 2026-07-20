@@ -23,6 +23,10 @@ def check(path: str) -> bool:
     with open(path) as f:
         doc = yaml.safe_load(f)
 
+    if not isinstance(doc, dict):
+        print(f"{path}: not a valid YAML mapping (empty or malformed)")
+        return False
+
     ok = True
     if doc.get("apiVersion") != "argoproj.io/v1alpha1" or doc.get("kind") != "Application":
         print(f"{path}: apiVersion/kind must be argoproj.io/v1alpha1 Application")
