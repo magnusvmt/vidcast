@@ -43,7 +43,9 @@ def check(path: str) -> bool:
                 break
             node = node[key]
 
-    source_path = doc.get("spec", {}).get("source", {}).get("path")
+    spec = doc.get("spec")
+    source = spec.get("source") if isinstance(spec, dict) else None
+    source_path = source.get("path") if isinstance(source, dict) else None
     if source_path is not None and not os.path.isdir(source_path):
         print(f"{path}: spec.source.path '{source_path}' is not a real directory in this repo")
         ok = False
