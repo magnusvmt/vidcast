@@ -57,3 +57,25 @@ Once bootstrapped, ArgoCD reconciles every Helm release under `deploy/charts/`
 that has a matching Application manifest in `deploy/argocd/apps/` - adding a
 new service there is enough to bring it under GitOps management, no extra
 `helm upgrade --install` required.
+
+## GitOps image bump
+
+CI never runs `helm upgrade` against the cluster. For echo, chat, and users,
+each Application manifest (`deploy/argocd/apps/{service}.yaml`) overrides the
+chart's own `image.repository`/`image.tag` to point at that service's image on
+GHCR, instead of the local dev registry the chart defaults to. On every push
+to `main` that changes a service, CI publishes its image to GHCR and then a
+`bump-image-tags` job edits that service's Application manifest to the new
+commit SHA, opens a PR, and (if enabled - see below) auto-merges it. ArgoCD's
+existing automated sync + selfHeal then reconciles the cluster from the merged
+manifest - CI never touches the cluster directly.
+
+Two repo settings gate the unattended part of this loop; without them the PR
+still opens, it just needs a human to merge it:
+- Settings → Actions → General → Workflow permissions → "Allow GitHub Actions
+  to create and approve pull requests"
+- Settings → General → Pull Requests → "Allow auto-merge"
+
+The chart's own `values.yaml` (used by `make deploy`, `make deploy-chat`,
+`make deploy-users`) is untouched by this and still points at the local k3d
+registry - the pre-bootstrap local flow above is unaffected.
