@@ -70,10 +70,11 @@ commit SHA, opens a PR, and (if enabled - see below) auto-merges it. ArgoCD's
 existing automated sync + selfHeal then reconciles the cluster from the merged
 manifest - CI never touches the cluster directly.
 
-Two repo settings gate the unattended part of this loop; without them the PR
-still opens, it just needs a human to merge it:
+Two repo settings gate the unattended part of this loop; without them the
+PR may still open (if creation is allowed), it just needs a human to merge it:
 - Settings → Actions → General → Workflow permissions → "Allow GitHub Actions
-  to create and approve pull requests"
+  to create and approve pull requests" (without this, `gh pr create` fails
+  and the job exits with a non-fatal message)
 - Settings → General → Pull Requests → "Allow auto-merge"
 
 The chart's own `values.yaml` (used by `make deploy`, `make deploy-chat`,

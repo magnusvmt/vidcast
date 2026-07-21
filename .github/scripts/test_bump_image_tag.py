@@ -77,6 +77,26 @@ class BumpTagNestedImageBlock(unittest.TestCase):
         self.assertIn("    path: deploy/charts/echo\n", result)
 
 
+class BumpTagPreserveInlineComment(unittest.TestCase):
+    def test_preserves_trailing_inline_comment(self):
+        text = "image:\n  repository: foo/bar\n  tag: dev  # pinned\n"
+        result = bump_tag(text, "abc123")
+        self.assertIn("  tag: abc123  # pinned\n", result)
+
+    def test_raises_when_second_image_block_found(self):
+        text = (
+            "image:\n"
+            "  repository: foo/bar\n"
+            "  tag: v1\n"
+            "someOtherKey:\n"
+            "  image:\n"
+            "    repository: bar/baz\n"
+            "    tag: v2\n"
+        )
+        with self.assertRaises(ValueError):
+            bump_tag(text, "abc123")
+
+
 class BumpTagQuotedValue(unittest.TestCase):
     def test_replaces_quoted_tag(self):
         text = "image:\n  repository: bluenviron/mediamtx\n  tag: \"1.19.2\"\n"

@@ -284,11 +284,11 @@ jobs:
       # under Settings, off by default on a new repo):
       #   - Actions > General > Workflow permissions > "Allow GitHub
       #     Actions to create and approve pull requests" (else `gh pr
-      #     create` below is rejected)
+      #     create` below is rejected with a non-fatal fallback)
       #   - General > Pull Requests > "Allow auto-merge" (else `gh pr
       #     merge --auto` below is rejected)
-      # Until both are on, this step still opens the PR - it just needs a
-      # human to merge it.
+      # Until both are on, the job still opens the PR (if creation is
+      # allowed) - it just needs a human to merge it.
       - name: Open GitOps image-bump PR
         if: steps.bump.outputs.services != ''
         env:
@@ -305,7 +305,8 @@ jobs:
           git push origin "$branch"
           gh pr create --base main --head "$branch" \
             --title "GitOps: bump image tag(s) to ${{ github.sha }}" \
-            --body "Automated image-tag bump for: $SERVICES. Once merged, ArgoCD's automated sync reconciles the image(s) built from ${{ github.sha }}."
+            --body "Automated image-tag bump for: $SERVICES. Once merged, ArgoCD's automated sync reconciles the image(s) built from ${{ github.sha }}." \
+            || echo "PR creation failed (enable 'Allow GitHub Actions to create and approve pull requests' under repo Settings)"
           gh pr merge "$branch" --auto --squash || echo "Auto-merge unavailable (enable it under repo Settings) - PR is open for manual merge."
 
   helm:

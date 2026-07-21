@@ -16,26 +16,37 @@ import sys
 def bump_tag(text: str, new_tag: str) -> str:
     lines = text.splitlines(keepends=True)
     image_indent = None
+    seen_image_block = False
+    found_image_tag = False
     for i, line in enumerate(lines):
         stripped = line.strip()
         indent = len(line) - len(line.lstrip(" "))
 
-        if image_indent is not None and stripped and indent <= image_indent:
-            # Dedented back out of the image: block without finding tag.
-            image_indent = None
+        if image_indent is not None:
+            if stripped and indent <= image_indent:
+                # Dedented back out of the image: block.
+                image_indent = None
+            elif stripped.startswith("tag:"):
+                if found_image_tag:
+                    raise ValueError("multiple image.tag fields found")
+                found_image_tag = True
+                prefix = line[: len(line) - len(line.lstrip())]
+                tag_content = stripped[len("tag:"):].strip()
+                trailing_comment = ""
+                hash_pos = tag_content.find("#")
+                if hash_pos != -1:
+                    trailing_comment = "  " + tag_content[hash_pos:].strip()
+                lines[i] = f"{prefix}tag: {new_tag}{trailing_comment}\n"
+                continue
 
         if stripped == "image:":
+            if seen_image_block:
+                raise ValueError("multiple image: blocks found; ambiguous which to patch")
+            seen_image_block = True
             image_indent = indent
-            continue
 
-        if image_indent is None or not stripped:
-            continue
-
-        if stripped.startswith("tag:"):
-            prefix = line[: len(line) - len(line.lstrip())]
-            lines[i] = f"{prefix}tag: {new_tag}\n"
-            return "".join(lines)
-
+    if found_image_tag:
+        return "".join(lines)
     raise ValueError("no image.tag field found")
 
 
