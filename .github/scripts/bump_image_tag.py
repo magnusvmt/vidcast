@@ -58,9 +58,10 @@ def main(argv: list[str]) -> int:
     path, new_tag = argv[1], argv[2]
     with open(path) as f:
         text = f.read()
+    new_text = bump_tag(text, new_tag)
 
     with open(path, "w") as f:
-        f.write(bump_tag(text, new_tag))
+        f.write(new_text)
 
     print(f"{path}: tag -> {new_tag}")
     return 0
