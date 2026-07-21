@@ -16,6 +16,7 @@ jobs:
       streams: ${{ steps.filter.outputs.streams }}
       helm: ${{ steps.filter.outputs.helm }}
       terraform: ${{ steps.filter.outputs.terraform }}
+      argocd: ${{ steps.filter.outputs.argocd }}
       workflow: ${{ steps.filter.outputs.workflow }}
     steps:
       - uses: actions/checkout@v4
@@ -37,6 +38,8 @@ jobs:
               - 'deploy/charts/**'
             terraform:
               - 'infra/terraform/**'
+            argocd:
+              - 'deploy/argocd/**'
             workflow:
               - '.github/workflows/ci.yaml'
 
@@ -280,3 +283,18 @@ jobs:
         run: |
           terraform init -backend=false
           terraform validate
+
+  argocd:
+    name: ArgoCD manifest checks
+    needs: changes
+    if: needs.changes.outputs.argocd == 'true' || needs.changes.outputs.workflow == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install PyYAML
+        run: pip install pyyaml==6.0.2
+      - name: Validate Application manifests
+        run: python3 .github/scripts/validate_argocd_apps.py
