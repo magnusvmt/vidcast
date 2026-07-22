@@ -17,6 +17,7 @@ jobs:
       helm: ${{ steps.filter.outputs.helm }}
       terraform: ${{ steps.filter.outputs.terraform }}
       argocd: ${{ steps.filter.outputs.argocd }}
+      scripts: ${{ steps.filter.outputs.scripts }}
       workflow: ${{ steps.filter.outputs.workflow }}
     steps:
       - uses: actions/checkout@v4
@@ -40,6 +41,8 @@ jobs:
               - 'infra/terraform/**'
             argocd:
               - 'deploy/argocd/**'
+            scripts:
+              - '.github/scripts/**'
             workflow:
               - '.github/workflows/ci.yaml'
 
@@ -237,6 +240,75 @@ jobs:
             ghcr.io/${{ github.repository }}/users:${{ github.sha }}
             ghcr.io/${{ github.repository }}/users:latest
 
+  bump-image-tags:
+    name: Bump image tags for GitOps
+    needs: [ghcr-publish-echo, ghcr-publish-chat, ghcr-publish-users]
+    if: |
+      always() &&
+      github.ref == 'refs/heads/main' &&
+      (needs.ghcr-publish-echo.result == 'success' ||
+       needs.ghcr-publish-chat.result == 'success' ||
+       needs.ghcr-publish-users.result == 'success')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Bump tags for images published in this run
+        id: bump
+        run: |
+          set -e
+          bumped=()
+          if [ "${{ needs.ghcr-publish-echo.result }}" = "success" ]; then
+            python3 .github/scripts/bump_image_tag.py deploy/argocd/apps/echo.yaml "${{ github.sha }}"
+            bumped+=("echo")
+          fi
+          if [ "${{ needs.ghcr-publish-chat.result }}" = "success" ]; then
+            python3 .github/scripts/bump_image_tag.py deploy/argocd/apps/chat.yaml "${{ github.sha }}"
+            bumped+=("chat")
+          fi
+          if [ "${{ needs.ghcr-publish-users.result }}" = "success" ]; then
+            python3 .github/scripts/bump_image_tag.py deploy/argocd/apps/users.yaml "${{ github.sha }}"
+            bumped+=("users")
+          fi
+          IFS=,; echo "services=${bumped[*]}" >> "$GITHUB_OUTPUT"
+      # This PR is how the bump reaches main without CI pushing to a
+      # protected branch directly: `main` requires a passing-checks PR (see
+      # branch protection), so we open one and let it auto-merge instead of
+      # deploying to the cluster ourselves. ArgoCD's existing automated
+      # sync + selfHeal (see deploy/argocd/apps/) reconciles the cluster
+      # once this lands on main.
+      #
+      # Requires two repo settings to actually complete unattended (both
+      # under Settings, off by default on a new repo):
+      #   - Actions > General > Workflow permissions > "Allow GitHub
+      #     Actions to create and approve pull requests" (else `gh pr
+      #     create` below is rejected with a non-fatal fallback)
+      #   - General > Pull Requests > "Allow auto-merge" (else `gh pr
+      #     merge --auto` below is rejected)
+      # Until both are on, the job still opens the PR (if creation is
+      # allowed) - it just needs a human to merge it.
+      - name: Open GitOps image-bump PR
+        if: steps.bump.outputs.services != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SERVICES: ${{ steps.bump.outputs.services }}
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          branch="gitops/bump-${{ github.sha }}"
+          git checkout -b "$branch"
+          git add deploy/argocd/apps/echo.yaml deploy/argocd/apps/chat.yaml deploy/argocd/apps/users.yaml
+          git commit -m "GitOps: bump image tag(s) to ${{ github.sha }} ($SERVICES)"
+          git push origin "$branch"
+          gh pr create --base main --head "$branch" \
+            --title "GitOps: bump image tag(s) to ${{ github.sha }}" \
+            --body "Automated image-tag bump for: $SERVICES. Once merged, ArgoCD's automated sync reconciles the image(s) built from ${{ github.sha }}." \
+            || echo "PR creation failed (enable 'Allow GitHub Actions to create and approve pull requests' under repo Settings)"
+          gh pr merge "$branch" --auto --squash || echo "Auto-merge unavailable (enable it under repo Settings) - PR is open for manual merge."
+
   helm:
     name: Helm chart checks
     needs: changes
@@ -298,3 +370,17 @@ jobs:
         run: pip install pyyaml==6.0.2
       - name: Validate Application manifests
         run: python3 .github/scripts/validate_argocd_apps.py
+
+  gitops-scripts:
+    name: GitOps scripts checks
+    needs: changes
+    if: needs.changes.outputs.scripts == 'true' || needs.changes.outputs.workflow == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Unit test bump_image_tag.py
+        working-directory: .github/scripts
+        run: python3 -m unittest test_bump_image_tag.py -v

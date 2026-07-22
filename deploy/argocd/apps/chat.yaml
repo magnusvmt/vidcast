@@ -11,6 +11,12 @@ spec:
     repoURL: https://github.com/magnusvmt/vidcast.git
     targetRevision: main
     path: deploy/charts/chat
+    helm:
+      # See echo.yaml for why this overrides the chart's own values.yaml.
+      valuesObject:
+        image:
+          repository: ghcr.io/magnusvmt/vidcast/chat
+          tag: latest
   destination:
     server: https://kubernetes.default.svc
     namespace: apps

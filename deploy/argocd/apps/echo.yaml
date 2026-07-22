@@ -11,6 +11,16 @@ spec:
     repoURL: https://github.com/magnusvmt/vidcast.git
     targetRevision: main
     path: deploy/charts/echo
+    helm:
+      # Overrides the chart's own values.yaml, which is tuned for the
+      # pre-bootstrap local dev flow (make deploy) against the in-cluster
+      # registry. ArgoCD instead tracks the image CI publishes to GHCR; the
+      # tag is bumped in place by the CI bump-image-tags job on every merge
+      # to main that changes this service, not by a direct helm upgrade.
+      valuesObject:
+        image:
+          repository: ghcr.io/magnusvmt/vidcast/echo
+          tag: latest
   destination:
     server: https://kubernetes.default.svc
     namespace: apps
