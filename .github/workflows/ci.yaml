@@ -350,11 +350,14 @@ jobs:
           terraform_version: "1.10.3"
       - name: terraform fmt
         run: terraform fmt -check -recursive infra/terraform
-      - name: terraform validate (local env)
-        working-directory: infra/terraform/envs/local
+      - name: terraform validate (all envs)
         run: |
-          terraform init -backend=false
-          terraform validate
+          set -e
+          for env in infra/terraform/envs/*/; do
+            echo "== ${env} =="
+            terraform -chdir="${env}" init -backend=false
+            terraform -chdir="${env}" validate
+          done
 
   argocd:
     name: ArgoCD manifest checks

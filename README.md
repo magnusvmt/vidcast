@@ -14,7 +14,7 @@ OBS ──RTMP──> MediaMTX ──HLS──> viewers (web frontend, HLS.js)
         ├─ chat svc ─────── WebSockets, pub/sub fan-out ─ Redis
         └─ web ──────────── channel pages, player + chat
 
-Platform: Kubernetes (k3d locally) · Terraform · Helm · GitHub Actions
+Platform: Kubernetes (k3d locally, k3s on Hetzner Cloud) · Terraform · Helm · GitHub Actions
 ```
 
 ## Repo layout
@@ -80,3 +80,29 @@ PR may still open (if creation is allowed), it just needs a human to merge it:
 The chart's own `values.yaml` (used by `make deploy`, `make deploy-chat`,
 `make deploy-users`) is untouched by this and still points at the local k3d
 registry - the pre-bootstrap local flow above is unaffected.
+
+## Cloud environment
+
+`infra/terraform/envs/` holds one directory per target cluster. `local`
+assumes a k3d cluster already exists (created by `make cluster`) and applies
+the shared `platform` module against it. The cloud target follows the same
+split, just with an extra step up front to create the cluster itself, since
+that step doesn't exist for k3d:
+
+1. `envs/hetzner-cluster` - provisions a single Hetzner Cloud server and
+   bootstraps k3s on it via cloud-init, then writes its kubeconfig to
+   `./kubeconfig` in that directory. Needs `TF_VAR_hcloud_token` (a Hetzner
+   Cloud API token) and an SSH key pair (defaults to `~/.ssh/id_ed25519[.pub]`,
+   override with `-var ssh_public_key_path=... -var ssh_private_key_path=...`).
+2. `envs/hetzner` - applies the same `modules/platform` used by `local`
+   against the kubeconfig `envs/hetzner-cluster` produced. Nothing in it is
+   Hetzner-specific.
+
+```
+cd infra/terraform/envs/hetzner-cluster && terraform init && terraform apply
+cd ../hetzner && terraform init && terraform apply
+```
+
+A single `cx22` server was chosen as the cheapest way to get a real k3s
+cluster running; see `docs/adr/0002-hetzner-cloud-environment.md` for the
+reasoning and what a managed-cluster alternative would have cost instead.
