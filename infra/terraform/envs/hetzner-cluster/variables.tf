@@ -28,7 +28,6 @@ variable "allowed_ssh_cidrs" {
 }
 
 variable "allowed_k8s_api_cidrs" {
-  description = "CIDR blocks allowed to reach the k3s API server on port 6443."
+  description = "CIDR blocks allowed to reach the k3s API server on port 6443. No default — must be explicitly set to a specific IP range."
   type        = list(string)
-  default     = ["0.0.0.0/0", "::/0"]
 }

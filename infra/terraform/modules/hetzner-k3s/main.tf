@@ -67,8 +67,9 @@ resource "null_resource" "kubeconfig" {
   }
 
   provisioner "local-exec" {
-    command = <<-EOT
-      set -e
+    interpreter = ["/bin/bash", "-c"]
+    command     = <<-EOT
+      set -euo pipefail
       ssh_key="${pathexpand(var.ssh_private_key_path)}"
       for i in $(seq 1 30); do
         if ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=5 \
