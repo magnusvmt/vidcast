@@ -61,7 +61,9 @@ resource "hcloud_server" "k3s" {
 # kubeconfig file shows up rather than requiring a second `terraform apply`.
 resource "null_resource" "kubeconfig" {
   triggers = {
-    server_id = hcloud_server.k3s.id
+    server_id              = hcloud_server.k3s.id
+    ssh_private_key_path   = var.ssh_private_key_path
+    kubeconfig_output_path = var.kubeconfig_output_path
   }
 
   provisioner "local-exec" {
@@ -69,11 +71,11 @@ resource "null_resource" "kubeconfig" {
       set -e
       ssh_key="${pathexpand(var.ssh_private_key_path)}"
       for i in $(seq 1 30); do
-        if ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 \
+        if ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=5 \
             -i "$ssh_key" \
             root@${hcloud_server.k3s.ipv4_address} \
             'test -f /etc/rancher/k3s/k3s.yaml'; then
-          ssh -o StrictHostKeyChecking=no -i "$ssh_key" \
+          ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i "$ssh_key" \
             root@${hcloud_server.k3s.ipv4_address} \
             'cat /etc/rancher/k3s/k3s.yaml' \
             | sed "s/127.0.0.1/${hcloud_server.k3s.ipv4_address}/" \
