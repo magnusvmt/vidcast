@@ -39,15 +39,13 @@ variable "ssh_private_key_path" {
 }
 
 variable "allowed_ssh_cidrs" {
-  description = "CIDR blocks allowed to reach the server on port 22. Restrict this to a known IP range in production."
+  description = "CIDR blocks allowed to reach the server on port 22. No default — must be explicitly set to a specific IP range."
   type        = list(string)
-  default     = ["0.0.0.0/0", "::/0"]
 }
 
 variable "allowed_k8s_api_cidrs" {
-  description = "CIDR blocks allowed to reach the k3s API server on port 6443."
+  description = "CIDR blocks allowed to reach the k3s API server on port 6443. No default — must be explicitly set to a specific IP range."
   type        = list(string)
-  default     = ["0.0.0.0/0", "::/0"]
 }
 
 variable "kubeconfig_output_path" {

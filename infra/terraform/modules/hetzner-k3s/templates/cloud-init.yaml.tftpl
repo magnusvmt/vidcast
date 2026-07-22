@@ -1,4 +1,6 @@
 #cloud-config
 package_update: true
 runcmd:
+  # Standard documented k3s install method; no checksum/signature pinning
+  # (accepted tradeoff, same as upstream install docs).
   - curl -sfL https://get.k3s.io | INSTALL_K3S_CHANNEL=${k3s_channel} sh -s - server --write-kubeconfig-mode 600

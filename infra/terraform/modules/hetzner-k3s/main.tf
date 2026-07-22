@@ -68,14 +68,17 @@ resource "null_resource" "kubeconfig" {
 
   provisioner "local-exec" {
     interpreter = ["/bin/bash", "-c"]
-    command     = <<-EOT
+    # StrictHostKeyChecking=no is a deliberate tradeoff for this hobby-scale
+    # env: there's no side channel here to pre-fetch the host key for TOFU,
+    # so the first connection to a freshly created server is unverified.
+    command = <<-EOT
       set -euo pipefail
       ssh_key="${pathexpand(var.ssh_private_key_path)}"
       for i in $(seq 1 30); do
         if ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=5 \
             -i "$ssh_key" \
             root@${hcloud_server.k3s.ipv4_address} \
-            'test -f /etc/rancher/k3s/k3s.yaml'; then
+            'test -s /etc/rancher/k3s/k3s.yaml && grep -q apiVersion /etc/rancher/k3s/k3s.yaml'; then
           ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i "$ssh_key" \
             root@${hcloud_server.k3s.ipv4_address} \
             'cat /etc/rancher/k3s/k3s.yaml' \
