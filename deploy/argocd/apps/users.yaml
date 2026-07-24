@@ -16,7 +16,7 @@ spec:
       valuesObject:
         image:
           repository: ghcr.io/magnusvmt/vidcast/users
-          tag: ffb25aaf54dc2bc7ab5d6bb9b18d060b9cc5d6da
+          tag: 7a06700843bdf8b462c04827d7522a4cfc42838b
   destination:
     server: https://kubernetes.default.svc
     namespace: apps
