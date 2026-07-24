@@ -24,19 +24,26 @@ type s3Config struct {
 }
 
 // loadS3Config reads recording storage settings from environment
-// variables. It returns ok=false if S3_BUCKET is unset, since VOD listing
-// is an optional feature - a deployment with no object storage configured
-// should still start up and serve its other endpoints.
+// variables. It returns ok=false if any required S3_* variable is
+// unset, since VOD listing is an optional feature - a deployment with
+// no object storage configured should still start up and serve its
+// other endpoints.
 func loadS3Config(getenv func(string) string) (cfg s3Config, ok bool) {
 	bucket := getenv("S3_BUCKET")
 	if bucket == "" {
 		return s3Config{}, false
 	}
+	endpoint := getenv("S3_ENDPOINT")
+	accessKey := getenv("S3_ACCESS_KEY")
+	secretKey := getenv("S3_SECRET_KEY")
+	if endpoint == "" || accessKey == "" || secretKey == "" {
+		return s3Config{}, false
+	}
 	return s3Config{
-		Endpoint:     getenv("S3_ENDPOINT"),
+		Endpoint:     endpoint,
 		Bucket:       bucket,
-		AccessKey:    getenv("S3_ACCESS_KEY"),
-		SecretKey:    getenv("S3_SECRET_KEY"),
+		AccessKey:    accessKey,
+		SecretKey:    secretKey,
 		UsePathStyle: getenv("S3_USE_PATH_STYLE") != "false",
 	}, true
 }

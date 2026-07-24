@@ -129,3 +129,38 @@ func TestListRecordingsHandler(t *testing.T) {
 		}
 	})
 }
+
+func TestContainsPathTraversal(t *testing.T) {
+	tests := []struct {
+		input string
+		want  bool
+	}{
+		{"alice", false},
+		{"alice-channel", false},
+		{"alice_channel", false},
+		{"../etc", true},
+		{"foo/bar", true},
+		{"foo\\bar", true},
+		{"..", true},
+		{"", false},
+	}
+	for _, tc := range tests {
+		got := containsPathTraversal(tc.input)
+		if got != tc.want {
+			t.Errorf("containsPathTraversal(%q) = %v, want %v", tc.input, got, tc.want)
+		}
+	}
+}
+
+func TestListRecordingsHandler_InvalidSlug(t *testing.T) {
+	api := &fakeRecordingsAPI{objects: map[string][]RecordingObject{}}
+	handler := newListRecordingsHandler(api)
+
+	for _, slug := range []string{"..", "../etc", "foo/bar", "foo\\bar"} {
+		rec := httptest.NewRecorder()
+		handler(rec, newRecordingsRequest(slug))
+		if rec.Code != http.StatusBadRequest {
+			t.Errorf("slug %q: status = %d, want 400; body=%s", slug, rec.Code, rec.Body.String())
+		}
+	}
+}

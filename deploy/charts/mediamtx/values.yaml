@@ -12,7 +12,7 @@ image:
   # identical to the upstream image when recording.enabled is false.
   repository: ghcr.io/magnusvmt/vidcast/vod-recorder
   tag: "latest"
-  pullPolicy: IfNotPresent
+  pullPolicy: Always
 
 rtmp:
   port: 1935

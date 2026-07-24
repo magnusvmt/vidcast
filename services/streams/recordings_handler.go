@@ -3,7 +3,9 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -59,6 +61,10 @@ func newListRecordingsHandler(api recordingsAPI) http.HandlerFunc {
 		}
 
 		slug := r.PathValue("slug")
+		if containsPathTraversal(slug) {
+			writeError(w, http.StatusBadRequest, fmt.Errorf("invalid slug %q", slug))
+			return
+		}
 		objects, err := api.ListRecordings(r.Context(), slug)
 		if err != nil {
 			writeError(w, http.StatusBadGateway, err)
@@ -84,4 +90,8 @@ func newListRecordingsHandler(api recordingsAPI) http.HandlerFunc {
 			Recordings []Recording `json:"recordings"`
 		}{Recordings: recordings})
 	}
+}
+
+func containsPathTraversal(s string) bool {
+	return strings.ContainsAny(s, "/\\") || strings.Contains(s, "..")
 }

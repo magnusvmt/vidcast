@@ -413,7 +413,16 @@ jobs:
           for env in infra/terraform/envs/*/; do
             echo "== ${env} =="
             terraform -chdir="${env}" init -backend=false
-            terraform -chdir="${env}" validate
+            # minio_root_password is required with no default; pass a dummy
+            # value for the hetzner env (which intentionally omits the
+            # password, requiring it at apply time) since validate never
+            # applies anything. Other envs either pass the var or don't use
+            # the platform module at all.
+            extra_var=""
+            if [ "${env}" = "infra/terraform/envs/hetzner/" ]; then
+              extra_var="-var=minio_root_password=dummy"
+            fi
+            terraform -chdir="${env}" validate $extra_var
           done
 
   argocd:

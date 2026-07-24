@@ -18,6 +18,39 @@ func TestLoadS3Config(t *testing.T) {
 		}
 	})
 
+	t.Run("not configured when S3_ENDPOINT is unset", func(t *testing.T) {
+		_, ok := loadS3Config(fakeGetenv(map[string]string{
+			"S3_BUCKET":     "vod-recordings",
+			"S3_ACCESS_KEY": "vidcast",
+			"S3_SECRET_KEY": "s3cret",
+		}))
+		if ok {
+			t.Fatal("expected ok=false when S3_ENDPOINT is unset")
+		}
+	})
+
+	t.Run("not configured when S3_ACCESS_KEY is unset", func(t *testing.T) {
+		_, ok := loadS3Config(fakeGetenv(map[string]string{
+			"S3_ENDPOINT":   "http://minio:9000",
+			"S3_BUCKET":     "vod-recordings",
+			"S3_SECRET_KEY": "s3cret",
+		}))
+		if ok {
+			t.Fatal("expected ok=false when S3_ACCESS_KEY is unset")
+		}
+	})
+
+	t.Run("not configured when S3_SECRET_KEY is unset", func(t *testing.T) {
+		_, ok := loadS3Config(fakeGetenv(map[string]string{
+			"S3_ENDPOINT":   "http://minio:9000",
+			"S3_BUCKET":     "vod-recordings",
+			"S3_ACCESS_KEY": "vidcast",
+		}))
+		if ok {
+			t.Fatal("expected ok=false when S3_SECRET_KEY is unset")
+		}
+	})
+
 	t.Run("configured with all fields", func(t *testing.T) {
 		cfg, ok := loadS3Config(fakeGetenv(map[string]string{
 			"S3_ENDPOINT":   "http://minio.apps.svc:9000",
@@ -42,7 +75,10 @@ func TestLoadS3Config(t *testing.T) {
 
 	t.Run("S3_USE_PATH_STYLE=false disables path-style addressing", func(t *testing.T) {
 		cfg, ok := loadS3Config(fakeGetenv(map[string]string{
+			"S3_ENDPOINT":       "http://minio:9000",
 			"S3_BUCKET":         "vod-recordings",
+			"S3_ACCESS_KEY":     "vidcast",
+			"S3_SECRET_KEY":     "s3cret",
 			"S3_USE_PATH_STYLE": "false",
 		}))
 		if !ok || cfg.UsePathStyle {
