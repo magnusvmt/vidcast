@@ -418,11 +418,11 @@ jobs:
             # password, requiring it at apply time) since validate never
             # applies anything. Other envs either pass the var or don't use
             # the platform module at all.
-            extra_var=""
             if [ "${env}" = "infra/terraform/envs/hetzner/" ]; then
-              extra_var="-var=minio_root_password=dummy"
+              TF_VAR_minio_root_password=dummy terraform -chdir="${env}" validate
+            else
+              terraform -chdir="${env}" validate
             fi
-            terraform -chdir="${env}" validate $extra_var
           done
 
   argocd:
