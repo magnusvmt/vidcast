@@ -25,6 +25,7 @@ Set once on the mediamtx pod (not per invocation):
 | `S3_ACCESS_KEY`      | Access key                                                 |
 | `S3_SECRET_KEY`      | Secret key                                                 |
 | `S3_USE_PATH_STYLE`  | `"false"` to use virtual-hosted-style addressing instead of path-style (default: path-style, required by MinIO) |
+| `S3_UPLOAD_TIMEOUT`  | Go duration (e.g. `"45m"`) bounding the segment upload; default `30m`. Scale this with `recording.segmentDuration`/bitrate - a segment can be several GB |
 
 MediaMTX sets these fresh for every hook invocation (see
 [path.go's OnSegmentComplete](https://github.com/bluenviron/mediamtx/blob/main/internal/core/path.go)):

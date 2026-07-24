@@ -2,6 +2,7 @@ package main
 
 import (
 	"testing"
+	"time"
 )
 
 func fakeGetenv(values map[string]string) func(string) string {
@@ -20,14 +21,44 @@ func TestLoadConfig(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		want := config{
-			Endpoint:     "http://minio.apps.svc:9000",
-			Bucket:       "vod-recordings",
-			AccessKey:    "vidcast",
-			SecretKey:    "s3cret",
-			UsePathStyle: true,
+			Endpoint:      "http://minio.apps.svc:9000",
+			Bucket:        "vod-recordings",
+			AccessKey:     "vidcast",
+			SecretKey:     "s3cret",
+			UsePathStyle:  true,
+			UploadTimeout: defaultUploadTimeout,
 		}
 		if cfg != want {
 			t.Fatalf("got %+v, want %+v", cfg, want)
+		}
+	})
+
+	t.Run("S3_UPLOAD_TIMEOUT overrides the default", func(t *testing.T) {
+		cfg, err := loadConfig(fakeGetenv(map[string]string{
+			"S3_ENDPOINT":       "http://minio.apps.svc:9000",
+			"S3_BUCKET":         "vod-recordings",
+			"S3_ACCESS_KEY":     "vidcast",
+			"S3_SECRET_KEY":     "s3cret",
+			"S3_UPLOAD_TIMEOUT": "45m",
+		}))
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if cfg.UploadTimeout != 45*time.Minute {
+			t.Fatalf("got UploadTimeout %v, want 45m", cfg.UploadTimeout)
+		}
+	})
+
+	t.Run("unparseable S3_UPLOAD_TIMEOUT", func(t *testing.T) {
+		_, err := loadConfig(fakeGetenv(map[string]string{
+			"S3_ENDPOINT":       "http://minio.apps.svc:9000",
+			"S3_BUCKET":         "vod-recordings",
+			"S3_ACCESS_KEY":     "vidcast",
+			"S3_SECRET_KEY":     "s3cret",
+			"S3_UPLOAD_TIMEOUT": "not-a-duration",
+		}))
+		if err == nil {
+			t.Fatal("expected error for unparseable S3_UPLOAD_TIMEOUT")
 		}
 	})
 

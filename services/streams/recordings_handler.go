@@ -49,6 +49,13 @@ const recordingURLExpiry = 15 * time.Minute
 //
 // api may be nil if this deployment has no object storage configured (see
 // main.go), in which case the endpoint reports 503 rather than panicking.
+//
+// Deliberately unauthenticated, like registerChannelsRoutes' GET /channels:
+// VOD playback is meant to be public in the same way a channel's live
+// stream is, so this mirrors the public listing pattern rather than the
+// stream-key routes' requireAuth (those guard a secret, this doesn't - the
+// presigned URLs it hands out are themselves scoped to one object and 15
+// minutes). Revisit if VOD is ever meant to be gated per-channel.
 func registerRecordingsRoutes(mux *http.ServeMux, api recordingsAPI) {
 	mux.HandleFunc("GET /channels/{slug}/recordings", newListRecordingsHandler(api))
 }

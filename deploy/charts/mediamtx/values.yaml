@@ -49,6 +49,10 @@ recording:
   # after a successful upload, but if that fails for some reason this is
   # what actually bounds the emptyDir's growth.
   deleteAfter: 24h
+  # Bounds a single segment upload (see services/vod-recorder's
+  # S3_UPLOAD_TIMEOUT). Scale this up if segmentDuration or expected bitrate
+  # increases - a segment can be several GB.
+  uploadTimeout: 30m
   s3:
     endpoint: http://minio.apps.svc.cluster.local:9000
     bucket: vod-recordings

@@ -13,7 +13,6 @@ import (
 	"context"
 	"log"
 	"os"
-	"time"
 )
 
 func main() {
@@ -27,7 +26,7 @@ func main() {
 	}
 
 	client := newS3Client(cfg)
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), cfg.UploadTimeout)
 	defer cancel()
 	if err := uploadSegment(ctx, client, cfg.Bucket, seg); err != nil {
 		log.Fatalf("vod-recorder: %v", err)

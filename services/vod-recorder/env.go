@@ -4,7 +4,16 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 )
+
+// defaultUploadTimeout bounds a single PutObject call (including SDK
+// retries) when S3_UPLOAD_TIMEOUT isn't set. It must comfortably cover
+// uploading a full segment - the chart's default recording.segmentDuration
+// is 1h, which at a modest bitrate can be several GB - not just a quick
+// health-check-sized request, so this is deliberately generous rather than
+// the short timeouts typical of request/response APIs.
+const defaultUploadTimeout = 30 * time.Minute
 
 // config holds the S3-compatible object storage settings this uploader
 // needs. It's set once on the recording pod's environment (not per
@@ -18,6 +27,10 @@ type config struct {
 	// backends, which don't support the virtual-hosted-style bucket
 	// addressing (bucket.endpoint.tld) that AWS S3 itself defaults to.
 	UsePathStyle bool
+	// UploadTimeout bounds the PutObject call for one segment. Configurable
+	// via S3_UPLOAD_TIMEOUT since the right value scales with
+	// recording.segmentDuration/bitrate, which vary per deployment.
+	UploadTimeout time.Duration
 }
 
 // loadConfig reads the object storage settings from environment variables,
@@ -25,11 +38,12 @@ type config struct {
 // real one.
 func loadConfig(getenv func(string) string) (config, error) {
 	cfg := config{
-		Endpoint:     getenv("S3_ENDPOINT"),
-		Bucket:       getenv("S3_BUCKET"),
-		AccessKey:    getenv("S3_ACCESS_KEY"),
-		SecretKey:    getenv("S3_SECRET_KEY"),
-		UsePathStyle: getenv("S3_USE_PATH_STYLE") != "false",
+		Endpoint:      getenv("S3_ENDPOINT"),
+		Bucket:        getenv("S3_BUCKET"),
+		AccessKey:     getenv("S3_ACCESS_KEY"),
+		SecretKey:     getenv("S3_SECRET_KEY"),
+		UsePathStyle:  getenv("S3_USE_PATH_STYLE") != "false",
+		UploadTimeout: defaultUploadTimeout,
 	}
 	for name, v := range map[string]string{
 		"S3_ENDPOINT":   cfg.Endpoint,
@@ -40,6 +54,13 @@ func loadConfig(getenv func(string) string) (config, error) {
 		if v == "" {
 			return config{}, fmt.Errorf("required environment variable %s is not set", name)
 		}
+	}
+	if raw := getenv("S3_UPLOAD_TIMEOUT"); raw != "" {
+		d, err := time.ParseDuration(raw)
+		if err != nil {
+			return config{}, fmt.Errorf("parse S3_UPLOAD_TIMEOUT %q: %w", raw, err)
+		}
+		cfg.UploadTimeout = d
 	}
 	return cfg, nil
 }
