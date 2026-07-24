@@ -11,6 +11,18 @@ spec:
     repoURL: https://github.com/magnusvmt/vidcast.git
     targetRevision: main
     path: deploy/charts/mediamtx
+    helm:
+      # See users.yaml for why this overrides the chart's own values.yaml -
+      # the tag here is bumped automatically once services/vod-recorder
+      # publishes to GHCR (see .github/workflows/ci.yaml's bump-image-tags
+      # job). recording.enabled turns on VOD recording to the in-cluster
+      # MinIO deployed by infra/terraform/modules/platform.
+      valuesObject:
+        image:
+          repository: ghcr.io/magnusvmt/vidcast/vod-recorder
+          tag: latest
+        recording:
+          enabled: true
   destination:
     server: https://kubernetes.default.svc
     namespace: apps

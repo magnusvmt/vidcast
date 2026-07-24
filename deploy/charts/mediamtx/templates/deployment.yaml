@@ -37,6 +37,29 @@ spec:
             - name: config
               mountPath: /mediamtx.yml
               subPath: mediamtx.yml
+            {{- if .Values.recording.enabled }}
+            - name: recordings
+              mountPath: /recordings
+            {{- end }}
+          {{- if .Values.recording.enabled }}
+          env:
+            - name: S3_ENDPOINT
+              value: {{ .Values.recording.s3.endpoint | quote }}
+            - name: S3_BUCKET
+              value: {{ .Values.recording.s3.bucket | quote }}
+            - name: S3_USE_PATH_STYLE
+              value: {{ .Values.recording.s3.usePathStyle | quote }}
+            - name: S3_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.recording.s3.existingSecret }}
+                  key: {{ .Values.recording.s3.accessKeyKey }}
+            - name: S3_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.recording.s3.existingSecret }}
+                  key: {{ .Values.recording.s3.secretKeyKey }}
+          {{- end }}
           # No HTTP health endpoint is enabled (api/metrics are off), so
           # probe the listeners directly instead of an httpGet path.
           # Readiness checks the RTMP ingest port so a broken ingest path
@@ -66,3 +89,10 @@ spec:
         - name: config
           configMap:
             name: {{ .Release.Name }}-config
+        {{- if .Values.recording.enabled }}
+        - name: recordings
+          # Local staging only: vod-recorder uploads each segment to S3 and
+          # deletes it immediately after (recordDeleteAfter is the
+          # backstop), so nothing here needs to survive a pod restart.
+          emptyDir: {}
+        {{- end }}

@@ -4,10 +4,14 @@
 replicaCount: 1
 
 image:
-  # bluenviron/mediamtx ships as a single static binary on scratch; no
-  # in-cluster registry mirroring needed like the polyglot services.
-  repository: bluenviron/mediamtx
-  tag: "1.19.2"
+  # Built from services/vod-recorder's Dockerfile: the official
+  # bluenviron/mediamtx:1.19.2 image (still a single static binary on
+  # scratch) with one extra static binary layered on top, so
+  # runOnRecordSegmentComplete (see recording.enabled below) has something
+  # to exec - MediaMTX has no native S3 upload support. Behavior is
+  # identical to the upstream image when recording.enabled is false.
+  repository: ghcr.io/magnusvmt/vidcast/vod-recorder
+  tag: "latest"
   pullPolicy: IfNotPresent
 
 rtmp:
@@ -32,6 +36,30 @@ hls:
     enabled: true
     host: mediamtx.vidcast.localhost
     annotations: {}
+
+recording:
+  # Off by default: enabling requires an S3-compatible bucket to actually
+  # exist (see infra/terraform/modules/platform's minio helm_release) and
+  # the s3 fields below to point at it.
+  enabled: false
+  # Minimum duration of each recorded segment before it's closed, uploaded,
+  # and a new one started - MediaMTX's own recordSegmentDuration setting.
+  segmentDuration: 1h
+  # Local-disk backstop: normally vod-recorder deletes each segment right
+  # after a successful upload, but if that fails for some reason this is
+  # what actually bounds the emptyDir's growth.
+  deleteAfter: 24h
+  s3:
+    endpoint: http://minio.apps.svc.cluster.local:9000
+    bucket: vod-recordings
+    usePathStyle: true
+    # Matches the Secret the official minio/minio chart generates for a
+    # release named "minio" in this namespace (see
+    # infra/terraform/modules/platform's minio helm_release) - override if
+    # existingSecret was set instead, or the release is named differently.
+    existingSecret: minio
+    accessKeyKey: rootUser
+    secretKeyKey: rootPassword
 
 probes:
   timeoutSeconds: 5
