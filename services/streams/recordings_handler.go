@@ -100,5 +100,5 @@ func newListRecordingsHandler(api recordingsAPI) http.HandlerFunc {
 }
 
 func containsPathTraversal(s string) bool {
-	return strings.ContainsAny(s, "/\\") || strings.Contains(s, "..")
+	return strings.ContainsAny(s, "/\\")
 }

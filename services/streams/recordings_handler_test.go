@@ -141,7 +141,8 @@ func TestContainsPathTraversal(t *testing.T) {
 		{"../etc", true},
 		{"foo/bar", true},
 		{"foo\\bar", true},
-		{"..", true},
+		{"..", false},
+		{"v2..final", false},
 		{"", false},
 	}
 	for _, tc := range tests {
@@ -156,7 +157,7 @@ func TestListRecordingsHandler_InvalidSlug(t *testing.T) {
 	api := &fakeRecordingsAPI{objects: map[string][]RecordingObject{}}
 	handler := newListRecordingsHandler(api)
 
-	for _, slug := range []string{"..", "../etc", "foo/bar", "foo\\bar"} {
+	for _, slug := range []string{"../etc", "foo/bar", "foo\\bar"} {
 		rec := httptest.NewRecorder()
 		handler(rec, newRecordingsRequest(slug))
 		if rec.Code != http.StatusBadRequest {

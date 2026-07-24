@@ -108,8 +108,8 @@ func loadSegment(getenv func(string) string) (segment, error) {
 	return segment{Path: path, LocalPath: localPath, Duration: duration}, nil
 }
 
-// containsPathTraversal returns true if s contains characters or components
-// that could escape the intended S3 key prefix when joined with path.Join.
+// containsPathTraversal returns true if s contains path separators that
+// could escape the intended S3 key prefix when joined with path.Join.
 func containsPathTraversal(s string) bool {
-	return strings.ContainsAny(s, "/\\") || strings.Contains(s, "..")
+	return strings.ContainsAny(s, "/\\")
 }

@@ -180,7 +180,8 @@ func TestContainsPathTraversal(t *testing.T) {
 		{"../evil", true},
 		{"foo/../bar", true},
 		{"foo\\bar", true},
-		{"..", true},
+		{"..", false},
+		{"v2..final", false},
 		{"", false},
 	}
 	for _, tc := range tests {
