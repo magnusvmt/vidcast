@@ -3,3 +3,9 @@ variable "kubeconfig_path" {
   type        = string
   default     = "../hetzner-cluster/kubeconfig"
 }
+
+variable "minio_root_password" {
+  description = "Root password for the in-cluster MinIO instance (VOD object storage). No default — must be provided explicitly, e.g. via -var or a gitignored terraform.tfvars file."
+  type        = string
+  sensitive   = true
+}

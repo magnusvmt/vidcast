@@ -14,6 +14,7 @@ jobs:
       users: ${{ steps.filter.outputs.users }}
       chat: ${{ steps.filter.outputs.chat }}
       streams: ${{ steps.filter.outputs.streams }}
+      vod_recorder: ${{ steps.filter.outputs.vod_recorder }}
       helm: ${{ steps.filter.outputs.helm }}
       terraform: ${{ steps.filter.outputs.terraform }}
       argocd: ${{ steps.filter.outputs.argocd }}
@@ -35,6 +36,8 @@ jobs:
               - 'services/chat/**'
             streams:
               - 'services/streams/**'
+            vod_recorder:
+              - 'services/vod-recorder/**'
             helm:
               - 'deploy/charts/**'
             terraform:
@@ -166,6 +169,55 @@ jobs:
             ghcr.io/${{ github.repository }}/chat:${{ github.sha }}
             ghcr.io/${{ github.repository }}/chat:latest
 
+  go-vod-recorder:
+    name: vod-recorder tool (Go)
+    needs: changes
+    if: needs.changes.outputs.vod_recorder == 'true' || needs.changes.outputs.workflow == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/vod-recorder
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+      - name: Lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          working-directory: services/vod-recorder
+          version: v1.62.2
+      - name: Test
+        run: go test ./... -race
+      - name: Build image
+        run: docker build -t vod-recorder:ci .
+
+  ghcr-publish-vod-recorder:
+    name: Publish vod-recorder image to GHCR
+    needs: [changes, go-vod-recorder]
+    if: |
+      needs.go-vod-recorder.result == 'success' &&
+      github.ref == 'refs/heads/main' &&
+      (needs.changes.outputs.vod_recorder == 'true' || needs.changes.outputs.workflow == 'true')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: services/vod-recorder
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}/vod-recorder:${{ github.sha }}
+            ghcr.io/${{ github.repository }}/vod-recorder:latest
+
   ghcr-publish-streams:
     name: Publish streams image to GHCR
     needs: [changes, go-streams]
@@ -242,13 +294,14 @@ jobs:
 
   bump-image-tags:
     name: Bump image tags for GitOps
-    needs: [ghcr-publish-echo, ghcr-publish-chat, ghcr-publish-users]
+    needs: [ghcr-publish-echo, ghcr-publish-chat, ghcr-publish-users, ghcr-publish-vod-recorder]
     if: |
       always() &&
       github.ref == 'refs/heads/main' &&
       (needs.ghcr-publish-echo.result == 'success' ||
        needs.ghcr-publish-chat.result == 'success' ||
-       needs.ghcr-publish-users.result == 'success')
+       needs.ghcr-publish-users.result == 'success' ||
+       needs.ghcr-publish-vod-recorder.result == 'success')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -271,6 +324,10 @@ jobs:
           if [ "${{ needs.ghcr-publish-users.result }}" = "success" ]; then
             python3 .github/scripts/bump_image_tag.py deploy/argocd/apps/users.yaml "${{ github.sha }}"
             bumped+=("users")
+          fi
+          if [ "${{ needs.ghcr-publish-vod-recorder.result }}" = "success" ]; then
+            python3 .github/scripts/bump_image_tag.py deploy/argocd/apps/mediamtx.yaml "${{ github.sha }}"
+            bumped+=("vod-recorder")
           fi
           IFS=,; echo "services=${bumped[*]}" >> "$GITHUB_OUTPUT"
       # This PR is how the bump reaches main without CI pushing to a
@@ -300,7 +357,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           branch="gitops/bump-${{ github.sha }}"
           git checkout -b "$branch"
-          git add deploy/argocd/apps/echo.yaml deploy/argocd/apps/chat.yaml deploy/argocd/apps/users.yaml
+          git add deploy/argocd/apps/echo.yaml deploy/argocd/apps/chat.yaml deploy/argocd/apps/users.yaml deploy/argocd/apps/mediamtx.yaml
           git commit -m "GitOps: bump image tag(s) to ${{ github.sha }} ($SERVICES)"
           git push origin "$branch"
           gh pr create --base main --head "$branch" \
@@ -356,7 +413,16 @@ jobs:
           for env in infra/terraform/envs/*/; do
             echo "== ${env} =="
             terraform -chdir="${env}" init -backend=false
-            terraform -chdir="${env}" validate
+            # minio_root_password is required with no default; pass a dummy
+            # value for the hetzner env (which intentionally omits the
+            # password, requiring it at apply time) since validate never
+            # applies anything. Other envs either pass the var or don't use
+            # the platform module at all.
+            if [ "${env}" = "infra/terraform/envs/hetzner/" ]; then
+              TF_VAR_minio_root_password=dummy terraform -chdir="${env}" validate
+            else
+              terraform -chdir="${env}" validate
+            fi
           done
 
   argocd:

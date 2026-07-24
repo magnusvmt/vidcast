@@ -1,4 +1,4 @@
-module github.com/magnusvmt/vidcast/services/streams
+module github.com/magnusvmt/vidcast/services/vod-recorder
 
 go 1.23.4
 
