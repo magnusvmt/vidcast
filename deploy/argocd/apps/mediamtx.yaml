@@ -20,7 +20,7 @@ spec:
       valuesObject:
         image:
           repository: ghcr.io/magnusvmt/vidcast/vod-recorder
-          tag: latest
+          tag: 02ce07e70aad41e69ccaf8621f942f3dfcaba4ed
         recording:
           enabled: true
   destination:
