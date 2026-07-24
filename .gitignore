@@ -2,6 +2,7 @@
 *.tfstate
 *.tfstate.*
 *.tfvars
+/infra/terraform/envs/hetzner-cluster/kubeconfig
 
 *.exe
 *.test
