@@ -113,4 +113,49 @@ func TestLoadSegment(t *testing.T) {
 			t.Fatal("expected error for unparseable MTX_SEGMENT_DURATION")
 		}
 	})
+
+	t.Run("rejects MTX_PATH with slash", func(t *testing.T) {
+		_, err := loadSegment(fakeGetenv(map[string]string{
+			"MTX_PATH":             "alice/bob",
+			"MTX_SEGMENT_PATH":     "/recordings/alice/seg.mp4",
+			"MTX_SEGMENT_DURATION": "10",
+		}))
+		if err == nil {
+			t.Fatal("expected error when MTX_PATH contains a slash")
+		}
+	})
+
+	t.Run("rejects MTX_PATH with dotdot", func(t *testing.T) {
+		_, err := loadSegment(fakeGetenv(map[string]string{
+			"MTX_PATH":             "../evil",
+			"MTX_SEGMENT_PATH":     "/recordings/alice/seg.mp4",
+			"MTX_SEGMENT_DURATION": "10",
+		}))
+		if err == nil {
+			t.Fatal("expected error when MTX_PATH contains ..")
+		}
+	})
+}
+
+func TestContainsPathTraversal(t *testing.T) {
+	tests := []struct {
+		input string
+		want  bool
+	}{
+		{"alice", false},
+		{"alice-bob", false},
+		{"alice_bob", false},
+		{"alice/bob", true},
+		{"../evil", true},
+		{"foo/../bar", true},
+		{"foo\\bar", true},
+		{"..", true},
+		{"", false},
+	}
+	for _, tc := range tests {
+		got := containsPathTraversal(tc.input)
+		if got != tc.want {
+			t.Errorf("containsPathTraversal(%q) = %v, want %v", tc.input, got, tc.want)
+		}
+	}
 }

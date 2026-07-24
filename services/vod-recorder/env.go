@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"strconv"
+	"strings"
 )
 
 // config holds the S3-compatible object storage settings this uploader
@@ -63,11 +64,16 @@ type segment struct {
 }
 
 // loadSegment reads the MTX_* environment variables MediaMTX sets for a
-// runOnRecordSegmentComplete invocation.
+// runOnRecordSegmentComplete invocation, and validates that path is a flat
+// slug (no path separators or traversal components) so objectKey can safely
+// build an S3 key without risking cross-channel namespace pollution.
 func loadSegment(getenv func(string) string) (segment, error) {
 	path := getenv("MTX_PATH")
 	if path == "" {
 		return segment{}, fmt.Errorf("required environment variable MTX_PATH is not set")
+	}
+	if containsPathTraversal(path) {
+		return segment{}, fmt.Errorf("MTX_PATH %q contains path traversal components (/, ..)", path)
 	}
 	localPath := getenv("MTX_SEGMENT_PATH")
 	if localPath == "" {
@@ -79,4 +85,10 @@ func loadSegment(getenv func(string) string) (segment, error) {
 		return segment{}, fmt.Errorf("parse MTX_SEGMENT_DURATION %q: %w", durationStr, err)
 	}
 	return segment{Path: path, LocalPath: localPath, Duration: duration}, nil
+}
+
+// containsPathTraversal returns true if s contains characters or components
+// that could escape the intended S3 key prefix when joined with path.Join.
+func containsPathTraversal(s string) bool {
+	return strings.ContainsAny(s, "/\\") || strings.Contains(s, "..")
 }

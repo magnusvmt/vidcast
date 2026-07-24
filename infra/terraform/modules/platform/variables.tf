@@ -9,8 +9,7 @@ variable "minio_root_user" {
 }
 
 variable "minio_root_password" {
-  description = "Root password for the in-cluster MinIO instance (VOD object storage)."
+  description = "Root password for the in-cluster MinIO instance (VOD object storage). No default — must be provided explicitly by each environment."
   type        = string
-  default     = "vidcast-minio-dev"
   sensitive   = true
 }
