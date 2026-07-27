@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -19,13 +20,16 @@ func newRootHandler(version string) http.HandlerFunc {
 	}
 }
 
-func newHealthHandler(rdb *redis.Client) http.HandlerFunc {
+// newHealthHandler reports healthy only when every shard responds: a chat
+// pod with one unreachable shard can't serve every room, so it shouldn't be
+// marked Ready either.
+func newHealthHandler(shards []*redis.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
 		defer cancel()
 
 		w.Header().Set("Content-Type", "application/json")
-		if err := rdb.Ping(ctx).Err(); err != nil {
+		if err := pingAllShards(ctx, shards); err != nil {
 			w.WriteHeader(http.StatusServiceUnavailable)
 			_ = json.NewEncoder(w).Encode(struct {
 				Status string `json:"status"`
@@ -37,4 +41,27 @@ func newHealthHandler(rdb *redis.Client) http.HandlerFunc {
 			Status string `json:"status"`
 		}{Status: "ok"})
 	}
+}
+
+func pingAllShards(ctx context.Context, shards []*redis.Client) error {
+	var (
+		wg       sync.WaitGroup
+		mu       sync.Mutex
+		firstErr error
+	)
+	for _, shard := range shards {
+		wg.Add(1)
+		go func(shard *redis.Client) {
+			defer wg.Done()
+			if err := shard.Ping(ctx).Err(); err != nil {
+				mu.Lock()
+				if firstErr == nil {
+					firstErr = err
+				}
+				mu.Unlock()
+			}
+		}(shard)
+	}
+	wg.Wait()
+	return firstErr
 }

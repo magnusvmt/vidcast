@@ -92,6 +92,93 @@ func TestBroker_StopsDeliveringAfterContextCancelled(t *testing.T) {
 	}
 }
 
+func TestShardIndex_DeterministicForSameRoom(t *testing.T) {
+	first := shardIndex("stream-42", 5)
+	second := shardIndex("stream-42", 5)
+	if first != second {
+		t.Fatalf("shardIndex(%q, 5) = %d then %d, want the same shard both times", "stream-42", first, second)
+	}
+}
+
+func TestShardIndex_WithinRange(t *testing.T) {
+	rooms := []string{"room-a", "room-b", "stream-42", "general", "help-desk", "vip-lounge"}
+	const n = 4
+	for _, room := range rooms {
+		idx := shardIndex(room, n)
+		if idx < 0 || idx >= n {
+			t.Fatalf("shardIndex(%q, %d) = %d, want in range [0, %d)", room, n, idx, n)
+		}
+	}
+}
+
+func TestShardIndex_DistributesAcrossMultipleShards(t *testing.T) {
+	rooms := []string{"room-a", "room-b", "room-c", "room-d", "room-e", "room-f", "room-g", "room-h"}
+	const n = 4
+	seen := make(map[int]bool)
+	for _, room := range rooms {
+		seen[shardIndex(room, n)] = true
+	}
+	if len(seen) < 2 {
+		t.Fatalf("shardIndex spread only %d distinct shard(s) across %d rooms with n=%d, want more than 1 (routing every room to the same shard defeats sharding)", len(seen), len(rooms), n)
+	}
+}
+
+func TestShardIndex_SingleShardAlwaysZero(t *testing.T) {
+	for _, room := range []string{"room-a", "room-b", "stream-42"} {
+		if idx := shardIndex(room, 1); idx != 0 {
+			t.Fatalf("shardIndex(%q, 1) = %d, want 0", room, idx)
+		}
+	}
+}
+
+// TestBroker_MultiShard_PublishSubscribeRoundTrip proves rooms sharded
+// across several independent Redis instances still deliver correctly: each
+// room is routed to a single shard for both subscribe and publish, so a
+// subscriber only ever needs to be listening on the shard its room hashes
+// to for the message to arrive.
+func TestBroker_MultiShard_PublishSubscribeRoundTrip(t *testing.T) {
+	const shardCount = 3
+	shards := make([]*redis.Client, shardCount)
+	for i := range shards {
+		mr := miniredis.RunT(t)
+		rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
+		t.Cleanup(func() { _ = rdb.Close() })
+		shards[i] = rdb
+	}
+	broker := newBroker(shards...)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	rooms := []string{"room-a", "room-b", "room-c", "room-d", "room-e", "room-f"}
+	received := make(map[string]chan []byte, len(rooms))
+	for _, room := range rooms {
+		room := room
+		ch := make(chan []byte, 1)
+		received[room] = ch
+		broker.subscribe(ctx, room, func(payload []byte) { ch <- payload })
+	}
+	time.Sleep(50 * time.Millisecond)
+
+	for _, room := range rooms {
+		if err := broker.publish(context.Background(), room, []byte("hello "+room)); err != nil {
+			t.Fatalf("publish to %q: %v", room, err)
+		}
+	}
+
+	for _, room := range rooms {
+		select {
+		case payload := <-received[room]:
+			want := "hello " + room
+			if string(payload) != want {
+				t.Fatalf("room %q received %q, want %q", room, payload, want)
+			}
+		case <-time.After(2 * time.Second):
+			t.Fatalf("room %q never received its published message across shards", room)
+		}
+	}
+}
+
 // TestBroker_FansOutAcrossIndependentClients is the core acceptance test for
 // this service: two Broker instances backed by two separate Redis clients
 // (standing in for two stateless chat pods) both connected to the same
