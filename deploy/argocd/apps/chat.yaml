@@ -16,7 +16,7 @@ spec:
       valuesObject:
         image:
           repository: ghcr.io/magnusvmt/vidcast/chat
-          tag: 7a06700843bdf8b462c04827d7522a4cfc42838b
+          tag: 02ce07e70aad41e69ccaf8621f942f3dfcaba4ed
   destination:
     server: https://kubernetes.default.svc
     namespace: apps
