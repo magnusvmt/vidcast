@@ -50,3 +50,21 @@ func TestGetRedisAddrs_TrimsWhitespaceAndDropsEmptyEntries(t *testing.T) {
 		t.Fatalf("getRedisAddrs() = %v, want %v", got, want)
 	}
 }
+
+func TestGetRedisAddrs_ReturnsEmptyWhenAllEntriesAreEmpty(t *testing.T) {
+	withRedisAddrEnv(t, ",")
+
+	got := getRedisAddrs()
+	if len(got) != 0 {
+		t.Fatalf("getRedisAddrs() = %v, want empty slice for REDIS_ADDR=\",\"", got)
+	}
+}
+
+func TestGetRedisAddrs_ReturnsEmptyForWhitespaceOnly(t *testing.T) {
+	withRedisAddrEnv(t, "  ")
+
+	got := getRedisAddrs()
+	if len(got) != 0 {
+		t.Fatalf("getRedisAddrs() = %v, want empty slice for whitespace-only REDIS_ADDR", got)
+	}
+}

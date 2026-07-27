@@ -14,6 +14,9 @@ func main() {
 	version := getEnv("VERSION", "dev")
 	addr := getEnv("ADDR", ":8080")
 	redisAddrs := getRedisAddrs()
+	if len(redisAddrs) == 0 {
+		log.Fatal("REDIS_ADDR must specify at least one address (e.g. localhost:6379)")
+	}
 
 	shards := make([]*redis.Client, len(redisAddrs))
 	for i, redisAddr := range redisAddrs {
