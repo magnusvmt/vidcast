@@ -41,7 +41,7 @@ func TestHealthHandler_OKWhenRedisReachable(t *testing.T) {
 	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
 	t.Cleanup(func() { _ = rdb.Close() })
 
-	handler := newHealthHandler(rdb)
+	handler := newHealthHandler([]*redis.Client{rdb})
 
 	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
 	rec := httptest.NewRecorder()
@@ -67,7 +67,55 @@ func TestHealthHandler_ServiceUnavailableWhenRedisUnreachable(t *testing.T) {
 	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
 	mr.Close()
 
-	handler := newHealthHandler(rdb)
+	handler := newHealthHandler([]*redis.Client{rdb})
+
+	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want %d (body: %s)", rec.Code, http.StatusServiceUnavailable, rec.Body.String())
+	}
+}
+
+// TestHealthHandler_OKWhenAllShardsReachable proves the health check covers
+// every configured shard, not just the first, once chat is sharded across
+// multiple Redis instances.
+func TestHealthHandler_OKWhenAllShardsReachable(t *testing.T) {
+	var shards []*redis.Client
+	for i := 0; i < 3; i++ {
+		mr := miniredis.RunT(t)
+		rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
+		t.Cleanup(func() { _ = rdb.Close() })
+		shards = append(shards, rdb)
+	}
+
+	handler := newHealthHandler(shards)
+
+	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d (body: %s)", rec.Code, http.StatusOK, rec.Body.String())
+	}
+}
+
+// TestHealthHandler_ServiceUnavailableWhenAnyShardUnreachable proves a
+// single down shard is enough to fail readiness even though the other
+// shards are healthy - a partially reachable shard set means some rooms
+// are unreachable, so the pod should not be marked Ready.
+func TestHealthHandler_ServiceUnavailableWhenAnyShardUnreachable(t *testing.T) {
+	mr1 := miniredis.RunT(t)
+	rdb1 := redis.NewClient(&redis.Options{Addr: mr1.Addr()})
+	t.Cleanup(func() { _ = rdb1.Close() })
+
+	mr2 := miniredis.RunT(t)
+	rdb2 := redis.NewClient(&redis.Options{Addr: mr2.Addr()})
+	t.Cleanup(func() { _ = rdb2.Close() })
+	mr2.Close()
+
+	handler := newHealthHandler([]*redis.Client{rdb1, rdb2})
 
 	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
 	rec := httptest.NewRecorder()
