@@ -65,9 +65,10 @@ def upgrade_to_head(bind: Engine) -> None:
             connection.commit()
         finally:
             if connection.dialect.name == "postgresql":
-                # A failed command.upgrade leaves Postgres with an aborted
-                # transaction; rolling back first lets the unlock run (so the
-                # session-level lock is actually released) instead of failing
-                # and masking the original migration error.
+                # Always rollback before unlock: on failure the transaction is
+                # aborted and the unlock would fail with
+                # "current transaction is aborted", masking the real error.
+                # On success, commit() already ran above; the rollback is a
+                # no-op against the empty auto-begun transaction.
                 connection.rollback()
                 connection.execute(text("SELECT pg_advisory_unlock(:lock_key)"), {"lock_key": _ADVISORY_LOCK_KEY})
