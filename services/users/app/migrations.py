@@ -77,10 +77,16 @@ def upgrade_to_head(bind: Engine) -> None:
                     connection.rollback()
                     connection.execute(text("SELECT pg_advisory_unlock(:lock_key)"), {"lock_key": _ADVISORY_LOCK_KEY})
                 except Exception:
-                    logger.warning("failed to release migration advisory lock during cleanup")
+                    logger.warning("failed to release migration advisory lock during cleanup; invalidating poisoned connection")
+                    try:
+                        connection.invalidate()
+                    except Exception:
+                        logger.warning("failed to invalidate connection after migration lock cleanup failure")
                     # Swallow cleanup failures so a secondary error here (e.g.
                     # a dropped connection) doesn't mask the migration error
-                    # that triggered this finally block in the first place. The
-                    # session-level lock is still released when the connection
-                    # closes on context exit.
-                    pass
+                    # that triggered this finally block in the first place.
+                    # Invalidate the connection so the pool discards it
+                    # immediately — otherwise a failed pg_advisory_unlock
+                    # leaves the lock held by a recycled pooled connection
+                    # (pool_recycle=1800s) that other pods must time out on
+                    # before they can start.

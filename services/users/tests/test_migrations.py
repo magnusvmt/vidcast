@@ -91,6 +91,9 @@ class _FakeConnection:
         self.rolled_back = True
         self.executed.append("rollback")
 
+    def invalidate(self):
+        self.executed.append("invalidate")
+
 
 class _FakeEngine:
     def __init__(self, connection):
@@ -118,6 +121,30 @@ def test_upgrade_to_head_rolls_back_before_unlock_when_upgrade_fails(monkeypatch
     rollback_idx = next(i for i, s in enumerate(connection.executed) if s == "rollback")
     unlock_idx = next(i for i, s in enumerate(connection.executed) if "pg_advisory_unlock" in str(s))
     assert rollback_idx < unlock_idx
+
+
+def test_upgrade_to_head_invalidates_connection_on_unlock_failure(monkeypatch):
+    """When the advisory unlock itself fails, the connection is invalidated
+    so the pool discards it instead of recycling it still holding the lock."""
+    connection = _FakeConnection()
+    engine = _FakeEngine(connection)
+
+    def boom(config, revision):
+        raise RuntimeError("migration failed")
+
+    monkeypatch.setattr(migrations_module.command, "upgrade", boom)
+
+    def failing_unlock(statement, params=None):
+        if "pg_advisory_unlock" in str(statement):
+            raise RuntimeError("unlock failed")
+        return _FakeResult(True)
+
+    connection.execute = failing_unlock
+
+    with pytest.raises(RuntimeError, match="migration failed"):
+        upgrade_to_head(engine)
+
+    assert "invalidate" in connection.executed
 
 
 def test_upgrade_to_head_lock_acquisition_times_out(monkeypatch):
