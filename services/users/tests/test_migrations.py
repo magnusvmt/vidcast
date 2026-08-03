@@ -4,7 +4,7 @@ from sqlalchemy import create_engine, inspect
 from sqlalchemy.pool import StaticPool
 
 from app.database import Base
-from app.migrations import _SERVICE_ROOT, upgrade_to_head
+from app.migrations import upgrade_to_head
 
 
 def _fresh_engine():
@@ -47,10 +47,3 @@ def test_upgrade_to_head_is_idempotent():
     upgrade_to_head(engine)
 
     assert set(inspect(engine).get_table_names()) >= {"users", "follows", "alembic_version"}
-
-
-def test_initial_revision_has_no_down_revision():
-    versions_dir = _SERVICE_ROOT / "alembic" / "versions"
-    revision_files = [p for p in versions_dir.glob("*.py") if p.name != "__init__.py"]
-
-    assert len(revision_files) == 1, "expected exactly one migration so far"

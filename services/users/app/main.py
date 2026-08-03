@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -11,7 +12,8 @@ from app.routers import auth, users
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    upgrade_to_head(engine)
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, upgrade_to_head, engine)
     yield
 
 
