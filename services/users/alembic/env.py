@@ -10,7 +10,7 @@ from app.models import Follow, User  # noqa: F401  (registers tables on Base.met
 config = context.config
 
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 # Resolve the URL the same way the app does, rather than duplicating the
 # discrete host/port/user/password-vs-DATABASE_URL logic here.
