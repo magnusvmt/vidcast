@@ -12,7 +12,7 @@ from app.routers import auth, users
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     await loop.run_in_executor(None, upgrade_to_head, engine)
     yield
 

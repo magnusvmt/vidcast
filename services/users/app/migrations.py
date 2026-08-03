@@ -1,9 +1,12 @@
+import hashlib
 from pathlib import Path
 
 from alembic import command
 from alembic.config import Config
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
+
+_ADVISORY_LOCK_KEY = int(hashlib.sha256(b"users.alembic.upgrade").hexdigest(), 16) & 0x7FFFFFFFFFFFFFFF
 
 _SERVICE_ROOT = Path(__file__).resolve().parent.parent
 _ALEMBIC_INI = _SERVICE_ROOT / "alembic.ini"
@@ -30,10 +33,11 @@ def upgrade_to_head(bind: Engine) -> None:
     config.set_main_option("script_location", str(_SERVICE_ROOT / "alembic"))
     with bind.connect() as connection:
         if connection.dialect.name == "postgresql":
-            connection.execute(text("SELECT pg_advisory_lock(0)"))
+            connection.execute(text("SELECT pg_advisory_lock(:lock_key)"), {"lock_key": _ADVISORY_LOCK_KEY})
         try:
             config.attributes["connection"] = connection
             command.upgrade(config, "head")
+            connection.commit()
         finally:
             if connection.dialect.name == "postgresql":
-                connection.execute(text("SELECT pg_advisory_unlock(0)"))
+                connection.execute(text("SELECT pg_advisory_unlock(:lock_key)"), {"lock_key": _ADVISORY_LOCK_KEY})
