@@ -70,5 +70,13 @@ def upgrade_to_head(bind: Engine) -> None:
                 # "current transaction is aborted", masking the real error.
                 # On success, commit() already ran above; the rollback is a
                 # no-op against the empty auto-begun transaction.
-                connection.rollback()
-                connection.execute(text("SELECT pg_advisory_unlock(:lock_key)"), {"lock_key": _ADVISORY_LOCK_KEY})
+                try:
+                    connection.rollback()
+                    connection.execute(text("SELECT pg_advisory_unlock(:lock_key)"), {"lock_key": _ADVISORY_LOCK_KEY})
+                except Exception:
+                    # Swallow cleanup failures so a secondary error here (e.g.
+                    # a dropped connection) doesn't mask the migration error
+                    # that triggered this finally block in the first place. The
+                    # session-level lock is still released when the connection
+                    # closes on context exit.
+                    pass
