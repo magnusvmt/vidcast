@@ -26,11 +26,15 @@ def _acquire_advisory_lock(connection) -> None:
     of blocking every subsequent pod's lifespan forever.
     """
     deadline = time.monotonic() + _ADVISORY_LOCK_TIMEOUT_S
+    logged_wait = False
     while True:
         if connection.execute(
             text("SELECT pg_try_advisory_lock(:lock_key)"), {"lock_key": _ADVISORY_LOCK_KEY}
         ).scalar():
             return
+        if not logged_wait:
+            logger.info("migration advisory lock held by another session; waiting up to %ds", _ADVISORY_LOCK_TIMEOUT_S)
+            logged_wait = True
         if time.monotonic() >= deadline:
             raise RuntimeError(
                 f"timed out after {_ADVISORY_LOCK_TIMEOUT_S}s waiting for the "
@@ -60,14 +64,15 @@ def upgrade_to_head(bind: Engine) -> None:
     # resolution depends on the process's current working directory.
     config.set_main_option("script_location", str(_SERVICE_ROOT / "alembic"))
     with bind.connect() as connection:
-        if connection.dialect.name == "postgresql":
+        is_postgres = connection.dialect.name == "postgresql"
+        if is_postgres:
             _acquire_advisory_lock(connection)
         try:
             config.attributes["connection"] = connection
             command.upgrade(config, "head")
             connection.commit()
         finally:
-            if connection.dialect.name == "postgresql":
+            if is_postgres:
                 # Always rollback before unlock: on failure the transaction is
                 # aborted and the unlock would fail with
                 # "current transaction is aborted", masking the real error.
@@ -92,7 +97,8 @@ def upgrade_to_head(bind: Engine) -> None:
                     try:
                         connection.invalidate()
                     except Exception:
-                        logger.warning(
-                            "failed to invalidate connection after migration lock cleanup failure",
+                        logger.error(
+                            "failed to invalidate connection after migration lock cleanup failure; "
+                            "advisory lock may leak until the connection is garbage-collected",
                             exc_info=True,
                         )
