@@ -4,13 +4,14 @@ from fastapi import FastAPI
 from sqlalchemy import text
 
 from app.config import settings
-from app.database import Base, engine
+from app.database import engine
+from app.migrations import upgrade_to_head
 from app.routers import auth, users
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    Base.metadata.create_all(bind=engine)
+    upgrade_to_head(engine)
     yield
 
 
