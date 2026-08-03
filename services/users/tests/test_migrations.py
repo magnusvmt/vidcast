@@ -89,6 +89,7 @@ class _FakeConnection:
 
     def rollback(self):
         self.rolled_back = True
+        self.executed.append("rollback")
 
 
 class _FakeEngine:
@@ -114,8 +115,9 @@ def test_upgrade_to_head_rolls_back_before_unlock_when_upgrade_fails(monkeypatch
     with pytest.raises(RuntimeError, match="migration failed"):
         upgrade_to_head(engine)
 
-    assert connection.rolled_back
-    assert any("pg_advisory_unlock" in str(s) for s in connection.executed)
+    rollback_idx = next(i for i, s in enumerate(connection.executed) if s == "rollback")
+    unlock_idx = next(i for i, s in enumerate(connection.executed) if "pg_advisory_unlock" in str(s))
+    assert rollback_idx < unlock_idx
 
 
 def test_upgrade_to_head_lock_acquisition_times_out(monkeypatch):

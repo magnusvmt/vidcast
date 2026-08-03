@@ -1,4 +1,5 @@
 import hashlib
+import logging
 import time
 from pathlib import Path
 
@@ -6,6 +7,8 @@ from alembic import command
 from alembic.config import Config
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
+
+logger = logging.getLogger(__name__)
 
 _ADVISORY_LOCK_KEY = int(hashlib.sha256(b"users.alembic.upgrade").hexdigest(), 16) & 0x7FFFFFFFFFFFFFFF
 _ADVISORY_LOCK_TIMEOUT_S = 30
@@ -74,6 +77,7 @@ def upgrade_to_head(bind: Engine) -> None:
                     connection.rollback()
                     connection.execute(text("SELECT pg_advisory_unlock(:lock_key)"), {"lock_key": _ADVISORY_LOCK_KEY})
                 except Exception:
+                    logger.warning("failed to release migration advisory lock during cleanup")
                     # Swallow cleanup failures so a secondary error here (e.g.
                     # a dropped connection) doesn't mask the migration error
                     # that triggered this finally block in the first place. The
