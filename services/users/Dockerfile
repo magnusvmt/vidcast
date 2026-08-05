@@ -11,6 +11,8 @@ RUN useradd --uid 65532 --create-home nonroot
 COPY --from=build /deps /usr/local/lib/python${PYTHON_VERSION}/site-packages
 WORKDIR /app
 COPY app ./app
+COPY alembic.ini ./
+COPY alembic ./alembic
 USER nonroot:nonroot
 EXPOSE 8080
 CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]
