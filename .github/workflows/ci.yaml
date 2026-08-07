@@ -52,7 +52,7 @@ jobs:
   go-echo:
     name: echo service (Go)
     needs: changes
-    if: needs.changes.outputs.echo == 'true' || needs.changes.outputs.workflow == 'true'
+    if: needs.changes.outputs.echo == 'true' || needs.changes.outputs.workflow == 'true' || needs.changes.outputs.argocd == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -369,7 +369,7 @@ jobs:
   helm:
     name: Helm chart checks
     needs: changes
-    if: needs.changes.outputs.helm == 'true' || needs.changes.outputs.workflow == 'true'
+    if: needs.changes.outputs.helm == 'true' || needs.changes.outputs.workflow == 'true' || needs.changes.outputs.argocd == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -398,7 +398,7 @@ jobs:
   terraform:
     name: Terraform checks
     needs: changes
-    if: needs.changes.outputs.terraform == 'true' || needs.changes.outputs.workflow == 'true'
+    if: needs.changes.outputs.terraform == 'true' || needs.changes.outputs.workflow == 'true' || needs.changes.outputs.argocd == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
