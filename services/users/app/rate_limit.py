@@ -90,7 +90,7 @@ class RateLimiter:
         stale = [
             k
             for k, b in self._buckets.items()
-            if b.count == 0 and b.locked_until == 0.0 and b.window_start < stale_before
+            if b.locked_until == 0.0 and b.window_start < stale_before
         ]
         for k in stale:
             del self._buckets[k]

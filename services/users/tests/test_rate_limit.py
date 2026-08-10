@@ -115,3 +115,28 @@ def test_get_client_ip_falls_back_to_unknown_when_no_client():
     request = _FakeRequest(headers={}, client_host=None)
 
     assert get_client_ip(request) == "unknown"
+
+
+def test_evict_stale_removes_single_touch_entries_after_window_expires():
+    window_seconds = 10.0
+    limiter, clock = make_limiter(
+        max_attempts=5,
+        window_seconds=window_seconds,
+        lockout_seconds=30.0,
+        now=0.0,
+    )
+    limiter._eviction_sample_size = 2
+
+    limiter.check("user-a")
+    limiter.check("user-b")
+    limiter.check("user-c")
+
+    assert len(limiter._buckets) == 3
+
+    clock["t"] += window_seconds * 2 + 1
+
+    limiter.check("user-other")
+
+    assert "user-a" not in limiter._buckets
+    assert "user-b" not in limiter._buckets
+    assert "user-c" not in limiter._buckets
