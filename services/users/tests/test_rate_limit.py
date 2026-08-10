@@ -117,6 +117,31 @@ def test_get_client_ip_falls_back_to_unknown_when_no_client():
     assert get_client_ip(request) == "unknown"
 
 
+def test_evict_stale_removes_bucket_that_was_locked_out_and_abandoned():
+    window_seconds = 10.0
+    lockout_seconds = 30.0
+    limiter, clock = make_limiter(
+        max_attempts=1,
+        window_seconds=window_seconds,
+        lockout_seconds=lockout_seconds,
+        now=0.0,
+    )
+    limiter._eviction_sample_size = 1
+
+    limiter.check("locked-key")
+    with pytest.raises(RateLimitExceeded):
+        limiter.check("locked-key")
+
+    assert "locked-key" in limiter._buckets
+    assert limiter._buckets["locked-key"].locked_until > 0.0
+
+    clock["t"] += lockout_seconds + window_seconds * 2 + 1
+
+    limiter.check("trigger-eviction")
+
+    assert "locked-key" not in limiter._buckets
+
+
 def test_evict_stale_removes_single_touch_entries_after_window_expires():
     window_seconds = 10.0
     limiter, clock = make_limiter(
