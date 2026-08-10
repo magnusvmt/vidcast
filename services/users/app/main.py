@@ -14,6 +14,8 @@ from app.routers import auth, users
 async def lifespan(app: FastAPI):
     loop = asyncio.get_running_loop()
     await loop.run_in_executor(None, upgrade_to_head, engine)
+    for limiter in (auth.register_ip_limiter, auth.login_ip_limiter, auth.login_username_limiter):
+        limiter.reset_all()
     yield
 
 

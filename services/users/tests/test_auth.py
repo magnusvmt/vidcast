@@ -216,3 +216,172 @@ def test_register_rejects_too_short_username(client):
     )
 
     assert response.status_code == 422
+
+
+def _set_login_limits(monkeypatch, max_attempts=2):
+    import app.routers.auth as auth_module
+    from app.rate_limit import RateLimiter
+
+    ip_limiter = RateLimiter(max_attempts=max_attempts, window_seconds=60.0, lockout_seconds=60.0)
+    username_limiter = RateLimiter(
+        max_attempts=max_attempts, window_seconds=60.0, lockout_seconds=60.0
+    )
+    monkeypatch.setattr(auth_module, "login_ip_limiter", ip_limiter)
+    monkeypatch.setattr(auth_module, "login_username_limiter", username_limiter)
+    return ip_limiter, username_limiter
+
+
+def _set_register_limits(monkeypatch, max_attempts=2):
+    import app.routers.auth as auth_module
+    from app.rate_limit import RateLimiter
+
+    ip_limiter = RateLimiter(max_attempts=max_attempts, window_seconds=60.0, lockout_seconds=60.0)
+    monkeypatch.setattr(auth_module, "register_ip_limiter", ip_limiter)
+    return ip_limiter
+
+
+def test_login_locks_out_after_too_many_failed_attempts_from_one_ip(client, monkeypatch):
+    _set_login_limits(monkeypatch, max_attempts=2)
+    client.post(
+        "/auth/register",
+        json={"username": "alice", "email": "alice@example.com", "password": "s3cret-pass"},
+    )
+
+    for _ in range(2):
+        response = client.post(
+            "/auth/login", data={"username": "alice", "password": "wrong-password"}
+        )
+        assert response.status_code == 401
+
+    response = client.post(
+        "/auth/login", data={"username": "alice", "password": "wrong-password"}
+    )
+
+    assert response.status_code == 429
+    assert "Retry-After" in response.headers
+
+
+def test_login_lockout_also_applies_to_the_correct_password(client, monkeypatch):
+    _set_login_limits(monkeypatch, max_attempts=2)
+    client.post(
+        "/auth/register",
+        json={"username": "alice", "email": "alice@example.com", "password": "s3cret-pass"},
+    )
+    for _ in range(2):
+        client.post("/auth/login", data={"username": "alice", "password": "wrong-password"})
+
+    response = client.post(
+        "/auth/login", data={"username": "alice", "password": "s3cret-pass"}
+    )
+
+    assert response.status_code == 429
+
+
+def test_login_lockout_is_tracked_per_username_independent_of_ip(client, monkeypatch):
+    # Only tighten the per-username limiter here; the per-IP limiter stays at
+    # its default (higher) budget so this isolates the username dimension -
+    # both requests below still come from the same client IP.
+    import app.routers.auth as auth_module
+    from app.rate_limit import RateLimiter
+
+    monkeypatch.setattr(
+        auth_module,
+        "login_username_limiter",
+        RateLimiter(max_attempts=2, window_seconds=60.0, lockout_seconds=60.0),
+    )
+    client.post(
+        "/auth/register",
+        json={"username": "alice", "email": "alice@example.com", "password": "s3cret-pass"},
+    )
+    client.post(
+        "/auth/register",
+        json={"username": "bob", "email": "bob@example.com", "password": "s3cret-pass"},
+    )
+    for _ in range(2):
+        client.post("/auth/login", data={"username": "alice", "password": "wrong-password"})
+
+    response = client.post("/auth/login", data={"username": "bob", "password": "s3cret-pass"})
+
+    assert response.status_code == 200
+
+
+def test_successful_login_resets_the_lockout_counters(client, monkeypatch):
+    _set_login_limits(monkeypatch, max_attempts=2)
+    client.post(
+        "/auth/register",
+        json={"username": "alice", "email": "alice@example.com", "password": "s3cret-pass"},
+    )
+
+    client.post("/auth/login", data={"username": "alice", "password": "wrong-password"})
+    response = client.post(
+        "/auth/login", data={"username": "alice", "password": "s3cret-pass"}
+    )
+    assert response.status_code == 200
+
+    # The earlier failed attempt shouldn't count against the now-reset budget.
+    for _ in range(2):
+        response = client.post(
+            "/auth/login", data={"username": "alice", "password": "wrong-password"}
+        )
+        assert response.status_code == 401
+
+
+def test_login_lockout_is_tracked_per_ip_independent_of_username(client, monkeypatch):
+    # Only tighten the per-IP limiter here; the per-username limiter stays at
+    # its default (higher) budget so this isolates the IP dimension - both
+    # requests below use the same username.
+    import app.routers.auth as auth_module
+    from app.rate_limit import RateLimiter
+
+    monkeypatch.setattr(
+        auth_module,
+        "login_ip_limiter",
+        RateLimiter(max_attempts=2, window_seconds=60.0, lockout_seconds=60.0),
+    )
+    client.post(
+        "/auth/register",
+        json={"username": "alice", "email": "alice@example.com", "password": "s3cret-pass"},
+    )
+    for i in range(2):
+        client.post(
+            "/auth/login",
+            data={"username": "alice", "password": "wrong-password"},
+            headers={"X-Forwarded-For": "10.0.0.1"},
+        )
+
+    blocked = client.post(
+        "/auth/login",
+        data={"username": "alice", "password": "s3cret-pass"},
+        headers={"X-Forwarded-For": "10.0.0.1"},
+    )
+    allowed = client.post(
+        "/auth/login",
+        data={"username": "alice", "password": "s3cret-pass"},
+        headers={"X-Forwarded-For": "10.0.0.2"},
+    )
+
+    assert blocked.status_code == 429
+    assert allowed.status_code == 200
+
+
+def test_register_rate_limits_repeated_attempts_from_one_ip(client, monkeypatch):
+    _set_register_limits(monkeypatch, max_attempts=2)
+
+    for i in range(2):
+        response = client.post(
+            "/auth/register",
+            json={
+                "username": f"user{i}",
+                "email": f"user{i}@example.com",
+                "password": "s3cret-pass",
+            },
+        )
+        assert response.status_code == 201
+
+    response = client.post(
+        "/auth/register",
+        json={"username": "user2", "email": "user2@example.com", "password": "s3cret-pass"},
+    )
+
+    assert response.status_code == 429
+    assert "Retry-After" in response.headers

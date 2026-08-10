@@ -21,6 +21,13 @@ class Settings(BaseSettings):
     jwt_expire_minutes: int = 60
     version: str = "dev"
 
+    login_rate_limit_max_attempts: int = 5
+    login_rate_limit_window_seconds: float = 60.0
+    login_rate_limit_lockout_seconds: float = 300.0
+    register_rate_limit_max_attempts: int = 5
+    register_rate_limit_window_seconds: float = 60.0
+    register_rate_limit_lockout_seconds: float = 300.0
+
     @model_validator(mode="after")
     def _reject_insecure_secret_outside_dev(self) -> "Settings":
         secret_value = self.jwt_secret.get_secret_value()
