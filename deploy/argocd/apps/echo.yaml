@@ -20,7 +20,7 @@ spec:
       valuesObject:
         image:
           repository: ghcr.io/magnusvmt/vidcast/echo
-          tag: 02ce07e70aad41e69ccaf8621f942f3dfcaba4ed
+          tag: 00a31d1969d949c1cb0979ddea0b93ec51949156
   destination:
     server: https://kubernetes.default.svc
     namespace: apps
