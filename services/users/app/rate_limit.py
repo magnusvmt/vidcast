@@ -35,6 +35,7 @@ class RateLimiter:
         window_seconds: float,
         lockout_seconds: float,
         now_fn: Callable[[], float] = time.monotonic,
+        _eviction_sample_size: int = 100,
     ):
         self._max_attempts = max_attempts
         self._window_seconds = window_seconds
@@ -42,10 +43,13 @@ class RateLimiter:
         self._now_fn = now_fn
         self._buckets: dict[str, _Bucket] = {}
         self._lock = threading.Lock()
+        self._eviction_counter = 0
+        self._eviction_sample_size = _eviction_sample_size
 
     def check(self, key: str) -> None:
         now = self._now_fn()
         with self._lock:
+            self._evict_stale(now)
             bucket = self._buckets.get(key)
             if bucket is None:
                 bucket = _Bucket(window_start=now)
@@ -78,6 +82,19 @@ class RateLimiter:
         with self._lock:
             self._buckets.clear()
 
+    def _evict_stale(self, now: float) -> None:
+        self._eviction_counter += 1
+        if self._eviction_counter % self._eviction_sample_size != 0:
+            return
+        stale_before = now - self._window_seconds * 2
+        stale = [
+            k
+            for k, b in self._buckets.items()
+            if b.count == 0 and b.locked_until == 0.0 and b.window_start < stale_before
+        ]
+        for k in stale:
+            del self._buckets[k]
+
 
 def get_client_ip(request) -> str:
     """Best-effort client IP for rate-limit keying.
@@ -87,6 +104,12 @@ def get_client_ip(request) -> str:
     the peer address it saw to those headers rather than passing a
     client-supplied value through unchanged. Falls back to the socket peer
     address for direct connections (e.g. tests).
+
+    There is no NetworkPolicy in deploy/ today restricting inbound traffic to
+    the users-service pod to Traefik only — any cluster-internal workload can
+    reach this pod directly and spoof these headers, defeating per-IP limiting.
+    Adding such a policy is out of scope for this PR (rate limiting in
+    application code); it is tracked as a separate concern.
     """
     real_ip = request.headers.get("x-real-ip")
     if real_ip:

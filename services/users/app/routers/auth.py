@@ -28,6 +28,12 @@ login_ip_limiter = RateLimiter(
     window_seconds=settings.login_rate_limit_window_seconds,
     lockout_seconds=settings.login_rate_limit_lockout_seconds,
 )
+# Known limitation: login_username_limiter is keyed per-username independent of
+# source IP, so any caller who knows (or can confirm via /auth/register's 409) a
+# valid username can lock that account out of login for lockout_seconds,
+# repeatedly and indefinitely, with no per-attacker cost. This is an accepted v1
+# trade-off - full mitigation (e.g. CAPTCHA, per-IP backoff before per-username
+# lockout, or exempting correct-password attempts) is tracked separately.
 login_username_limiter = RateLimiter(
     max_attempts=settings.login_rate_limit_max_attempts,
     window_seconds=settings.login_rate_limit_window_seconds,
