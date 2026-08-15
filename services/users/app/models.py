@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, ForeignKey, Index, String
+from sqlalchemy import DateTime, ForeignKey, Index, String, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -8,6 +8,14 @@ from app.database import Base
 
 class User(Base):
     __tablename__ = "users"
+    __table_args__ = (
+        # app/schemas.py already lowercases username/email before they reach here,
+        # but that only covers the UserCreate path. These functional unique indexes
+        # are DB-level defense-in-depth so any other write path (raw SQL, a future
+        # service, a migration bug) can't create case-variant duplicate accounts.
+        Index("ix_users_email_lower", text("lower(email)"), unique=True),
+        Index("ix_users_username_lower", text("lower(username)"), unique=True),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     username: Mapped[str] = mapped_column(String(32), unique=True, index=True)
