@@ -19,15 +19,28 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    # Drop the old case-sensitive unique indexes first so the backfill below
+    # doesn't fail on pre-existing case-variant duplicates (exactly the data
+    # this migration exists to protect against). They are recreated below
+    # after the functional indexes, for exact-match query performance.
+    op.drop_index(op.f("ix_users_email"), table_name="users")
+    op.drop_index(op.f("ix_users_username"), table_name="users")
+
     # Backfill any rows written before app-level lowercase normalization
     # (app/schemas.py's UserCreate validators) existed, so the unique indexes
     # below don't fail on pre-existing data.
     op.execute("UPDATE users SET email = lower(email)")
     op.execute("UPDATE users SET username = lower(username)")
+
     op.create_index("ix_users_email_lower", "users", [sa.text("lower(email)")], unique=True)
     op.create_index(
         "ix_users_username_lower", "users", [sa.text("lower(username)")], unique=True
     )
+
+    # Recreate the plain unique indexes for exact-match query performance on
+    # login/user lookups (functional indexes on lower() can't serve those).
+    op.create_index(op.f("ix_users_email"), "users", ["email"], unique=True)
+    op.create_index(op.f("ix_users_username"), "users", ["username"], unique=True)
 
 
 def downgrade() -> None:
