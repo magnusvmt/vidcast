@@ -29,8 +29,15 @@ def upgrade() -> None:
     # Backfill any rows written before app-level lowercase normalization
     # (app/schemas.py's UserCreate validators) existed, so the unique indexes
     # below don't fail on pre-existing data.
-    op.execute("UPDATE users SET email = lower(email)")
-    op.execute("UPDATE users SET username = lower(username)")
+    # Only rewrite rows that aren't already lowercase to avoid unnecessary
+    # write amplification on a clean table.
+    # Note: SQL lower() and Python str.lower() can disagree for non-ASCII
+    # characters (e.g. Turkish I). Usernames are constrained to ASCII so this
+    # doesn't apply there; for email, the app layer already normalizes on write
+    # via UserCreate, so this DB-level constraint is defense-in-depth covering
+    # the common Latin-script case.
+    op.execute("UPDATE users SET email = lower(email) WHERE email <> lower(email)")
+    op.execute("UPDATE users SET username = lower(username) WHERE username <> lower(username)")
 
     op.create_index("ix_users_email_lower", "users", [sa.text("lower(email)")], unique=True)
     op.create_index(
