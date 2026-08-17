@@ -51,5 +51,10 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    # Note: the lowercase backfill in upgrade() is intentionally NOT reversed
+    # here. Rows that were lowercased by upgrade() stay lowercased after a
+    # downgrade — there is no clean way to restore their original case without
+    # preserving pre-migration state, and keeping them lowercase is harmless
+    # (app-level validation already normalizes new input).
     op.drop_index("ix_users_username_lower", table_name="users")
     op.drop_index("ix_users_email_lower", table_name="users")
