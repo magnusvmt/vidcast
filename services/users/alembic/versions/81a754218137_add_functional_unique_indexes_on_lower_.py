@@ -23,6 +23,11 @@ def upgrade() -> None:
     # doesn't fail on pre-existing case-variant duplicates (exactly the data
     # this migration exists to protect against). They are recreated below
     # after the functional indexes, for exact-match query performance.
+    # Note: DROP INDEX / CREATE INDEX take table-level locks on Postgres, and
+    # the whole sequence runs inside a single DDL transaction (see
+    # app/migrations.py's upgrade_to_head), so the users table is effectively
+    # locked for the duration. Acceptable at current pre-production scale; not
+    # zero-downtime on a large live table.
     op.drop_index(op.f("ix_users_email"), table_name="users")
     op.drop_index(op.f("ix_users_username"), table_name="users")
 
