@@ -1,12 +1,19 @@
+from pathlib import Path
+
 import pytest
+from alembic import command
 from alembic.autogenerate import compare_metadata
+from alembic.config import Config
 from alembic.runtime.migration import MigrationContext
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import create_engine, inspect, text
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app import migrations as migrations_module
 from app.database import Base
 from app.migrations import upgrade_to_head
+from app.models import User
 
 
 def _fresh_engine():
@@ -49,6 +56,62 @@ def test_upgrade_to_head_is_idempotent():
     upgrade_to_head(engine)
 
     assert set(inspect(engine).get_table_names()) >= {"users", "follows", "alembic_version"}
+
+
+def _session_factory(engine):
+    upgrade_to_head(engine)
+    return sessionmaker(autocommit=False, autoflush=False, bind=engine)()
+
+
+def test_schema_rejects_case_variant_duplicate_email_at_db_level():
+    # app/schemas.py already lowercases email before it reaches the DB, but this
+    # confirms the DB itself refuses case-variant duplicates for any write path
+    # that bypasses that layer (raw SQL, a future service, a migration bug).
+    session = _session_factory(_fresh_engine())
+    session.add(User(username="alice", email="Alice@Example.com", hashed_password="x"))
+    session.commit()
+
+    session.add(User(username="someone-else", email="alice@example.com", hashed_password="x"))
+    with pytest.raises(IntegrityError):
+        session.commit()
+
+
+def test_schema_rejects_case_variant_duplicate_username_at_db_level():
+    session = _session_factory(_fresh_engine())
+    session.add(User(username="Alice", email="alice@example.com", hashed_password="x"))
+    session.commit()
+
+    session.add(User(username="alice", email="someone-else@example.com", hashed_password="x"))
+    with pytest.raises(IntegrityError):
+        session.commit()
+
+
+def test_migration_backfill_detects_pre_existing_case_variant_duplicates():
+    """Confirm the migration itself catches pre-existing case-variant
+    duplicates (e.g. rows written before app-level normalization existed)
+    rather than silently corrupting data. The migration is expected to raise
+    IntegrityError when the functional unique index on lower() is created."""
+    engine = _fresh_engine()
+    alembic_ini = str(Path(__file__).resolve().parent.parent / "alembic.ini")
+    alembic_dir = str(Path(__file__).resolve().parent.parent / "alembic")
+    config = Config(alembic_ini)
+    config.set_main_option("script_location", alembic_dir)
+
+    with engine.connect() as connection:
+        config.attributes["connection"] = connection
+        command.upgrade(config, "364ed08b6200")
+        connection.commit()
+
+    with engine.connect() as connection:
+        connection.execute(
+            text("INSERT INTO users (username, email, hashed_password, created_at) "
+                 "VALUES ('alice', 'Alice@Example.com', 'x', '2024-01-01T00:00:00+00:00'), "
+                 "        ('ALICE', 'ALICE@example.com', 'x', '2024-01-01T00:00:00+00:00')")
+        )
+        connection.commit()
+
+    with pytest.raises(IntegrityError):
+        upgrade_to_head(engine)
 
 
 class _FakeDialect:
