@@ -137,6 +137,29 @@ def test_rejects_body_over_limit_with_understated_content_length():
     assert messages[0]["status"] == 413
 
 
+def test_swallowed_exception_on_oversized_body_is_logged(caplog):
+    class RaisingApp:
+        async def __call__(self, scope, receive, send):
+            while True:
+                message = await receive()
+                if not message.get("more_body", False):
+                    break
+            raise RuntimeError("unrelated bug in the wrapped app")
+
+    middleware = MaxBodySizeMiddleware(RaisingApp(), max_body_size=10)
+    receive = chunked_receive(
+        [{"type": "http.request", "body": b"way-too-many-bytes", "more_body": False}]
+    )
+    messages, send = run(collect_send())
+
+    with caplog.at_level("ERROR"):
+        run(middleware(make_scope(), receive, send))
+
+    assert messages[0]["type"] == "http.response.start"
+    assert messages[0]["status"] == 413
+    assert any("unrelated error" in record.message for record in caplog.records)
+
+
 def test_non_http_scope_passes_through_untouched():
     app = RecordingApp()
     middleware = MaxBodySizeMiddleware(app, max_body_size=10)

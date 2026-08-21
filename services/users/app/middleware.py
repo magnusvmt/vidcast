@@ -1,5 +1,9 @@
+import logging
+
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
+
+logger = logging.getLogger(__name__)
 
 
 class MaxBodySizeMiddleware:
@@ -60,6 +64,10 @@ class MaxBodySizeMiddleware:
         except Exception:
             if not exceeded:
                 raise
+            logger.exception(
+                "inner app raised while handling an oversized request body; "
+                "responding 413 but logging in case this masks an unrelated error"
+            )
         if exceeded:
             await _too_large_response(scope, receive, send)
 
