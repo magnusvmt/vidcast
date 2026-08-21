@@ -2,10 +2,6 @@ from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 
-class _MaxBodySizeExceeded(Exception):
-    """Internal signal that the streamed body crossed the configured limit."""
-
-
 class MaxBodySizeMiddleware:
     """Rejects request bodies larger than max_body_size with a 413.
 
@@ -36,34 +32,35 @@ class MaxBodySizeMiddleware:
             return
 
         received = 0
-        response_started = False
+        exceeded = False
 
         async def guarded_receive() -> Message:
-            nonlocal received
+            nonlocal received, exceeded
+            if exceeded:
+                return {"type": "http.request", "body": b"", "more_body": False}
             message = await receive()
             if message["type"] == "http.request":
                 received += len(message.get("body", b""))
                 if received > self.max_body_size:
-                    raise _MaxBodySizeExceeded()
+                    exceeded = True
+                    return {"type": "http.request", "body": b"", "more_body": False}
             return message
 
-        async def tracking_send(message: Message) -> None:
-            nonlocal response_started
-            if message["type"] == "http.response.start":
-                response_started = True
+        async def intercepted_send(message: Message) -> None:
+            nonlocal exceeded
+            if exceeded and message["type"] in (
+                "http.response.start",
+                "http.response.body",
+            ):
+                return
             await send(message)
 
         try:
-            await self.app(scope, guarded_receive, tracking_send)
-        except _MaxBodySizeExceeded:
-            # A response can only be that of a route handler; a route handler
-            # can't have started one without first finishing reading the body
-            # that we just interrupted. response_started is checked anyway so
-            # this fails loudly (re-raising into a 500) rather than silently
-            # sending a second, conflicting response if that invariant is
-            # ever wrong.
-            if response_started:
+            await self.app(scope, guarded_receive, intercepted_send)
+        except Exception:
+            if not exceeded:
                 raise
+        if exceeded:
             await _too_large_response(scope, receive, send)
 
 
