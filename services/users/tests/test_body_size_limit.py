@@ -2,10 +2,12 @@ import asyncio
 
 import pytest
 from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.config import settings
 from app.database import engine as prod_engine
+from app.database import get_db
 from app.migrations import upgrade_to_head
 
 import app.main as main_module
@@ -60,15 +62,23 @@ def asgi_app():
         poolclass=StaticPool,
     )
 
-    # The lifespan in main.py reads `from app.database import engine` at
-    # module scope, so patching both names is needed to route lifespan
-    # and route-handler database access through the test engine.
     import app.database as db_module
 
     db_module.engine = test_engine
     main_module.engine = test_engine
+    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
+
+    def override_get_db():
+        db = TestingSessionLocal()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = override_get_db
     upgrade_to_head(test_engine)
     yield app
+    app.dependency_overrides.clear()
     db_module.engine = prod_engine
     main_module.engine = prod_engine
 
