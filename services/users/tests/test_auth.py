@@ -152,7 +152,11 @@ def test_login_never_hands_oversized_password_to_bcrypt(client, monkeypatch):
 
     monkeypatch.setattr(auth_module, "verify_password", spy_verify_password)
 
-    oversized_password = "x" * 5_000_000
+    # Comfortably over bcrypt's 72-byte limit but still well under the
+    # request body size limit (see MaxBodySizeMiddleware / test_body_size_limit.py),
+    # so this test exercises auth.py's own oversized-password guard rather
+    # than the earlier body-size rejection.
+    oversized_password = "x" * 1_000
     response = client.post(
         "/auth/login", data={"username": "alice", "password": oversized_password}
     )

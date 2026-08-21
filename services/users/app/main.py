@@ -6,6 +6,7 @@ from sqlalchemy import text
 
 from app.config import settings
 from app.database import engine
+from app.middleware import MaxBodySizeMiddleware
 from app.migrations import upgrade_to_head
 from app.routers import auth, users
 
@@ -26,6 +27,7 @@ app = FastAPI(
     redoc_url="/redoc" if settings.environment == "development" else None,
     openapi_url="/openapi.json" if settings.environment == "development" else None,
 )
+app.add_middleware(MaxBodySizeMiddleware, max_body_size=settings.max_request_body_bytes)
 app.include_router(auth.router)
 app.include_router(users.router)
 
