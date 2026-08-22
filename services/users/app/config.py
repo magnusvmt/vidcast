@@ -28,6 +28,12 @@ class Settings(BaseSettings):
     register_rate_limit_window_seconds: float = 60.0
     register_rate_limit_lockout_seconds: float = 300.0
 
+    # Every request body this service expects (register/login payloads) is well
+    # under 1 KiB; 16 KiB leaves headroom for encoding/whitespace overhead while
+    # still capping how much an oversized request can force the service to
+    # buffer in memory. See MaxBodySizeMiddleware.
+    max_request_body_bytes: int = 16 * 1024
+
     @model_validator(mode="after")
     def _reject_insecure_secret_outside_dev(self) -> "Settings":
         secret_value = self.jwt_secret.get_secret_value()
